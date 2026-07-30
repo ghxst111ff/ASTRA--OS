@@ -1,1 +1,241 @@
+<div class="astra-container">
+
+
+  <!-- ASTRA CORE -->
+
+  <div class="holo-core" id="astraCore">
+
+    <div class="core-circle">
+      <span>ASTRA</span>
+    </div>
+
+    <div class="version">
+      ASTRA v1.0
+    </div>
+
+    <div id="status">
+      SYSTEM ONLINE
+    </div>
+
+  </div>
+
+
+
+  <!-- MODULE BUTTONS -->
+
+  <div class="modules">
+
+    <button class="module-btn" data-module="journal">
+      JOURNAL
+    </button>
+
+
+    <button class="module-btn" data-module="trading">
+      TRADING
+    </button>
+
+
+    <button class="module-btn" data-module="memory">
+      MEMORY
+    </button>
+
+
+    <button class="module-btn" data-module="screen">
+      SCREEN
+    </button>
+
+
+    <button class="module-btn" data-module="performance">
+      PERFORMANCE
+    </button>
+
+
+  </div>
+
+
+
+
+  <!-- MODULE SYSTEM -->
+
+  <div class="module-container">
+
+
+    <!-- JOURNAL MODULE -->
+
+    <div class="module-panel hidden" id="journal">
+
+      <h2>📓 JOURNAL</h2>
+
+      <p id="latestTrade">
+        No trades yet
+      </p>
+
+
+      <input 
+      type="file"
+      id="tradeScreenshot"
+      accept="image/*">
+
+
+      <button id="saveScreenshot">
+        SAVE SCREENSHOT
+      </button>
+
+    </div>
+
+
+
+
+
+    <!-- TRADING MODULE -->
+
+    <div class="module-panel hidden" id="trading">
+
+      <h2>📈 TRADING</h2>
+
+
+      <p id="tradeCount">
+        Trades: 0
+      </p>
+
+
+      <p id="winRate">
+        Win Rate: 0%
+      </p>
+
+
+    </div>
+
+
+
+
+
+    <!-- MEMORY MODULE -->
+
+    <div class="module-panel hidden" id="memory">
+
+      <h2>💾 MEMORY</h2>
+
+
+      <p id="memoryCount">
+        Memories: 0
+      </p>
+
+
+    </div>
+
+
+
+
+
+    <!-- SCREEN MODULE -->
+
+    <div class="module-panel hidden" id="screen">
+
+      <h2>🖥 SCREEN VIEW</h2>
+
+
+      <div id="screenOutput">
+        Waiting for screen input...
+      </div>
+
+
+    </div>
+
+
+
+
+
+    <!-- PERFORMANCE MODULE -->
+
+    <div class="module-panel hidden" id="performance">
+
+      <h2>📊 PERFORMANCE</h2>
+
+
+      <canvas id="equityChart"></canvas>
+
+
+    </div>
+
+
+
+  </div>
+
+
+
+
+
+
+  <!-- ASTRA CHAT OUTPUT -->
+
+  <div id="output" class="astra-feed">
+
+
+    <div class="astra-message">
+
+      ASTRA online. Awaiting command.
+
+    </div>
+
+
+  </div>
+
+
+
+
+
+
+  <!-- COMMAND AREA -->
+
+  <div class="command-area">
+
+
+    <input
+
+    id="commandInput"
+
+    type="text"
+
+    placeholder="Speak to ASTRA..."
+
+    >
+
+
+
+
+    <button id="sendBtn">
+
+      SEND
+
+    </button>
+
+
+
+
+
+    <button id="viewScreenBtn">
+
+      VIEW SCREEN
+
+    </button>
+
+
+
+
+
+    <button id="voiceBtn">
+
+      🎤
+
+    </button>
+
+
+
+  </div>
+
+
+
+</div>
+
 
