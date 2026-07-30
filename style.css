@@ -1,1 +1,999 @@
+/* ================================
+   ASTRA CORE SYSTEM CSS
+================================ */
 
+
+* {
+  box-sizing: border-box;
+}
+
+
+body {
+
+  margin: 0;
+
+  background:
+  radial-gradient(circle at center,
+  #123b52 0%,
+  #061521 45%,
+  #02070d 100%);
+
+  color: #d9f7ff;
+
+  font-family:
+  "Segoe UI",
+  sans-serif;
+
+  height: 100vh;
+
+  overflow: hidden;
+
+}
+
+
+
+
+/* MAIN CONTAINER */
+
+.astra-container {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 80px;
+}
+
+
+
+
+
+/* ================================
+        ASTRA CORE
+================================ */
+
+
+.holo-core {
+
+  position: absolute;
+
+  top: 50%;
+
+  left: 50%;
+
+  transform:
+  translate(-50%, -50%);
+
+  text-align: center;
+
+}
+
+
+
+
+.core-circle {
+
+
+  width: 150px;
+
+  height: 150px;
+
+  border-radius: 50%;
+  
+    position:relative;
+    top:60px;
+
+
+  display:flex;
+
+  justify-content:center;
+
+  align-items:center;
+
+animation: corePulse 1.8s infinite;
+
+  
+  :
+
+  radial-gradient(circle,
+
+  #1c6b86,
+
+  #073042 55%,
+
+  #02141d);
+
+
+
+  box-shadow:
+
+  0 0 25px rgba(0,190,255,.45),
+
+  inset 0 0 35px rgba(0,220,255,.35)
+
+
+  position: relative;
+
+
+}
+
+
+
+
+
+/* OUTER RINGS */
+
+
+.core-circle::before {
+
+
+content:"";
+
+
+position:absolute;
+
+
+width:180px;
+
+
+height:180px;
+
+
+border-radius:50%;
+
+
+border:1px solid rgba(0,200,255,.45);
+
+
+animation:
+
+rotateRing 8s linear infinite,
+ corePulse 3s infinite;
+
+}
+
+
+
+
+
+.core-circle::after {
+
+
+content:"";
+
+
+position:absolute;
+
+
+width:210px;
+
+
+height:210px;
+
+
+border-radius:50%;
+
+
+border:1px solid rgba(0,150,220,.25);
+
+
+animation:
+
+rotateRingReverse 12s linear infinite,
+ corePulse 3s infinite;
+
+}
+
+
+
+
+
+.core-circle span {
+
+
+font-size:18px;
+
+
+letter-spacing:4px;
+
+
+font-weight:600;
+
+
+color:#d7f8ff;
+
+
+z-index:2;
+
+
+}
+
+
+
+
+
+.version {
+
+
+margin-top:90px;
+
+
+font-size:14px;
+
+
+opacity:.8;
+
+   
+}
+
+}
+
+#status {
+
+
+margin-top:8px;
+
+
+font-size:12px;
+
+
+color:#63e6ff;
+
+
+letter-spacing:2px;
+
+    
+    position:relative;
+    top:60px;
+
+}
+
+}
+
+
+
+
+
+
+
+
+/* CORE ANIMATION */
+
+@keyframes corePulse {
+
+0%,100%{
+    opacity:0.85;
+    filter:brightness(1);
+}
+
+50%{
+    opacity:1;
+    filter:brightness(1.8);
+}
+
+}
+
+
+
+@keyframes rotateRing {
+
+
+from{
+
+transform:rotate(0deg);
+
+}
+
+
+to{
+
+transform:rotate(360deg);
+
+}
+
+
+}
+
+
+
+@keyframes rotateRingReverse {
+
+
+from{
+
+transform:rotate(360deg);
+
+}
+
+
+to{
+
+transform:rotate(0deg);
+
+}
+
+
+}
+
+
+
+
+
+/* ================================
+        MODULE BUTTONS
+================================ */
+
+
+.modules {
+
+
+position:absolute;
+
+
+top:25px;
+
+
+display:flex;
+
+
+gap:12px;
+
+
+}
+
+
+
+.module-btn {
+
+
+background: rgba(5,25,40,.88);
+
+border:1px solid rgba(0,234,255,.35);
+
+box-shadow:
+0 0 25px rgba(0,234,255,.18);
+
+backdrop-filter: blur(10px);
+
+border-radius:18px;
+
+
+cursor:pointer;
+
+
+font-size:12px;
+
+
+letter-spacing:1px;
+
+
+transition:.3s;
+
+
+}
+
+
+
+
+.module-btn:hover,
+
+
+.module-btn.active {
+
+
+box-shadow:
+
+0 0 18px #00bfff;
+
+
+border-color:#00d9ff;
+
+
+color:white;
+
+
+}
+
+
+
+
+
+/* ================================
+        MODULE WINDOWS
+================================ */
+
+
+.module-container {
+
+    position:static;
+
+}
+
+
+
+.module-panel {
+
+
+width:320px;
+
+
+padding:20px;
+
+
+background:
+
+
+rgba(3,20,35,.85);
+
+
+border:
+
+1px solid rgba(0,190,255,.35);
+
+
+border-radius:15px;
+
+
+box-shadow:
+
+0 0 25px rgba(0,180,255,.2);
+
+
+backdrop-filter:blur(10px);
+
+
+}
+
+
+
+.hidden {
+
+
+display:none;
+
+
+}
+
+
+
+
+
+.module-panel h2 {
+
+
+color:#63e6ff;
+
+letter-spacing:2px;
+
+text-shadow:
+0 0 10px rgba(0,234,255,.5);
+
+}
+
+
+
+
+
+/* ================================
+        CHAT AREA
+================================ */
+
+
+.astra-feed {
+
+position:absolute;
+
+bottom:90px;
+
+width:90%;
+
+max-width:700px;
+
+height:350px;
+
+overflow-y:auto;
+
+padding:15px;
+
+background:
+rgba(0,20,35,.55);
+
+border-radius:15px;
+
+}
+
+
+border:
+
+1px solid rgba(0,190,255,.2);
+
+
+}
+
+
+
+
+
+.astra-message {
+
+
+padding:10px;
+
+
+color:#d8f8ff;
+
+
+}
+
+
+
+
+
+/* ================================
+        COMMAND BAR
+================================ */
+
+
+.command-area {
+
+
+position:absolute;
+
+
+bottom:20px;
+
+
+width:90%;
+
+
+max-width:800px;
+
+
+display:flex;
+
+
+gap:8px;
+
+
+}
+
+
+
+.command-area input {
+
+
+flex:1;
+
+
+height:38px;
+
+
+background:
+
+rgba(0,30,45,.9);
+
+
+border:
+
+1px solid rgba(0,200,255,.35);
+
+
+border-radius:20px;
+
+
+padding:0 18px;
+
+
+color:white;
+
+
+outline:none;
+
+
+}
+
+
+
+
+
+.command-area button {
+
+
+height:38px;
+
+
+padding:0 18px;
+
+
+border-radius:20px;
+
+
+background:
+
+rgba(0,80,110,.7);
+
+
+border:
+
+1px solid #00bfff;
+
+
+color:white;
+
+
+cursor:pointer;
+
+
+transition:.3s;
+
+
+}
+
+
+
+
+
+.command-area button:hover {
+
+
+box-shadow:
+
+0 0 15px #00cfff;
+
+
+}
+
+
+
+
+
+#viewScreenBtn {
+
+
+background:
+
+rgba(0,100,130,.8);
+
+
+}
+
+
+
+
+/* MOBILE FIX */
+
+
+@media(max-width:700px){
+
+
+.modules{
+
+
+gap:5px;
+
+
+}
+
+
+.module-btn{
+
+
+padding:7px 10px;
+
+
+font-size:10px;
+
+
+}
+
+
+
+}
+
+/* =========================================
+   ASTRA DASHBOARD PANEL LAYOUT
+========================================= */
+
+
+/* ASTRA CORE CENTER */
+#astraCore {
+    position:absolute;
+    top:70px;
+    left:50%;
+    transform:translateX(-50%);
+}
+
+
+/* TRADING - TOP LEFT */
+#trading {
+    position:absolute;
+    top:40px;
+    left:40px;
+    width:280px;
+}
+
+
+/* JOURNAL - TOP RIGHT */
+#journal {
+    position:absolute;
+    top:40px;
+    right:40px;
+    width:280px;
+}
+
+
+/* MEMORY - BOTTOM LEFT */
+#memory {
+    position:absolute;
+    bottom:40px;
+    left:40px;
+    width:280px;
+}
+
+
+/* PERFORMANCE - BOTTOM RIGHT */
+#performance {
+    position:absolute;
+    bottom:40px;
+    right:40px;
+    width:280px;
+}
+
+
+/* SCREEN VIEW - RIGHT SIDE */
+#screen {
+    position:absolute;
+    right:40px;
+    top:50%;
+    transform:translateY(-50%);
+    width:320px;
+}
+
+/* =========================================
+   ASTRA CONVERSATION DESIGN
+========================================= */
+
+.astra-message,
+.user-message {
+
+    margin:15px 0;
+
+    padding:15px 18px;
+
+    line-height:1.6;
+
+    letter-spacing:0.3px;
+
+    border-radius:15px;
+
+    font-size:16px;
+
+}
+
+
+/* ASTRA RESPONSE */
+
+.astra-message {
+
+    color:#b9f7ff;
+
+    background:
+    rgba(0,180,255,0.12);
+
+    border-left:3px solid #00eaff;
+
+}
+
+
+/* USER MESSAGE */
+
+.user-message {
+
+    color:#d8d8ff;
+
+    background:
+    rgba(255,255,255,0.08);
+
+    border-right:3px solid #8a7dff;
+
+}
+
+
+/* ASTRA NAME */
+
+.astra-message b {
+
+    color:#00eaff;
+
+}
+
+
+/* USER NAME */
+
+.user-message b {
+
+    color:#a99cff;
+
+}
+
+button {
+
+padding:12px 20px;
+
+border-radius:15px;
+
+background:
+rgba(0,234,255,0.12);
+
+border:1px solid rgba(0,234,255,0.5);
+
+color:#b9f7ff;
+
+font-size:15px;
+
+cursor:pointer;
+
+transition:.3s;
+
+}
+
+
+button:hover {
+
+background:
+rgba(0,234,255,0.25);
+
+transform:translateY(-2px);
+
+}
+
+
+/* ASTRA ENERGY PULSE */
+
+.core-circle::before,
+.core-circle::after {
+
+    box-shadow:
+    0 0 25px rgba(0,234,255,.5),
+    0 0 50px rgba(0,234,255,.25);
+
+    animation:
+    rotateRing 8s linear infinite,
+    ringGlowPulse 3s infinite;
+
+}
+
+
+@keyframes ringGlowPulse {
+
+0%,100%{
+
+    opacity:.4;
+
+    filter:
+    brightness(1);
+
+}
+
+
+50%{
+
+    opacity:1;
+
+    filter:
+    brightness(2);
+
+}
+
+}
+
+.core-circle {
+
+box-shadow:
+
+0 0 35px rgba(0,234,255,.8),
+inset 0 0 45px rgba(0,220,255,.5);
+
+animation: corePulse 3s infinite;
+
+}
+
+
+
+
+
+
+
+
+
+
+/* ASTRA PANEL POSITIONS */
+
+/* JOURNAL - TOP RIGHT */
+#journal {
+    position:absolute;
+    top:90px;
+    right:40px;
+    width:300px;
+}
+
+
+/* TRADING - TOP LEFT */
+#trading {
+    position:absolute;
+    top:90px;
+    left:40px;
+    width:300px;
+}
+
+
+/* MEMORY - BOTTOM LEFT */
+#memory {
+    position:absolute;
+    bottom:40px;
+    left:40px;
+    width:300px;
+}
+
+
+/* PERFORMANCE - BOTTOM RIGHT */
+#performance {
+    position:absolute;
+    bottom:40px;
+    right:40px;
+    width:300px;
+}
+
+
+/* SCREEN - RIGHT SIDE */
+#screen {
+    position:absolute;
+    top:50%;
+    right:40px;
+    transform:translateY(-50%);
+    width:320px;
+}
+
+
+
+
+
+
+
+
+.module-panel {
+    display:none;
+}
+
+.module-panel.active {
+    display:block;
+}
+
+
+/* ASTRA PANEL OPEN ANIMATION */
+
+.module {
+
+    animation: panelOpen .25s ease-out;
+
+}
+
+@keyframes panelOpen {
+
+    from{
+
+        opacity:0;
+
+        transform:translateY(15px) scale(.96);
+
+    }
+
+    to{
+
+        opacity:1;
+
+        transform:translateY(0) scale(1);
+
+    }
+
+}
