@@ -74,86 +74,6 @@ ${modules.join("<br>")}`
 };
 
 
-ASTRA.modules.modeSwitcher =
-ModeSwitcher;
-
-
-console.log(
-"ASTRA Mode Switcher v2.0 Loaded"
-);
-
-/* =========================================
-   ASTRA MODULE BLUEPRINT SYSTEM v1.0
-========================================= */
-
-const ModuleBlueprints = {
-
-
-    core:{
-
-        files:[
-
-            "Core Logic",
-
-            "Commands",
-
-            "Context Connection",
-
-            "Memory Connection"
-
-        ]
-
-    },
-
-
-    trading:{
-
-        files:[
-
-            "Trading Engine",
-
-            "Journal",
-
-            "Performance"
-
-        ]
-
-    },
-
-
-    analysis:{
-
-        files:[
-
-            "Analysis Engine",
-
-            "Data Processing",
-
-            "Context Connection"
-
-        ]
-
-    },
-
-
-    ai:{
-
-        files:[
-
-            "AI Logic",
-
-            "Memory Connection",
-
-            "Conversation"
-
-        ]
-
-    }
-
-
-};
-
-
 ASTRA.registerModule(
     "modeSwitcher",
     ModeSwitcher
@@ -161,6 +81,4 @@ ASTRA.registerModule(
 
 
 console.log(
-"ASTRA Module Blueprint System Loaded"
-);
-
+"ASTRA Mode Switcher v2.0 Loaded"
