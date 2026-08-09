@@ -10,7 +10,19 @@ ASTRA.modules.command = {
 const mode = ASTRA.modules.mode.getMode();
     
       const lowerCommand = command.toLowerCase();
+      
+const registeredCommand =
+    ASTRA.commands.find(
+        cmd => cmd.trigger === lowerCommand
+    );
 
+if (registeredCommand) {
+
+    registeredCommand.action();
+
+    return;
+
+}
 
 // APPROVE COMMAND
 
