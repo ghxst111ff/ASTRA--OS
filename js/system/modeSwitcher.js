@@ -82,3 +82,4 @@ ASTRA.registerModule(
 
 console.log(
 "ASTRA Mode Switcher v2.0 Loaded"
+);
