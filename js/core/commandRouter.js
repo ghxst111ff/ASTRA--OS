@@ -38,7 +38,8 @@ ASTRA.modules.installer.install(feature);
 return;
 
 }
-        const intent = detectIntent(command);
+        const intent =
+    ASTRA.modules.intent.detect(command);
 
         if(intent.action === "open"){
 
