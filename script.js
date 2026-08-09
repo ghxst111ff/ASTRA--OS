@@ -653,50 +653,6 @@ console.log(
 
 
 /* =========================================
-   ASTRA BUILD PLANNER
-========================================= */
-
-const BuildPlanner = {
-
-    plan(update){
-
-        return {
-
-            feature:update.feature,
-
-            module:update.module,
-
-            version:update.version,
-
-            priority:update.priority || "normal",
-
-            estimatedFiles:[
-
-                "Module",
-
-                "Commands",
-
-                "Context Engine",
-
-                "UI"
-
-            ],
-
-            status:"Awaiting Approval"
-
-        };
-
-    }
-
-};
-
-ASTRA.modules.buildPlanner =
-BuildPlanner;
-
-console.log(
-"ASTRA Build Planner Loaded"
-);
-/* =========================================
    ASTRA UPDATE ANALYZER v2.0
 ========================================= */
 
