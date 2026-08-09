@@ -266,7 +266,7 @@ async function askAI(userMessage){
 
 
 
-function getModuleType(feature){
+ASTRA.modules.moduleType.detect(feature){
 
     feature =
     feature.toLowerCase();
