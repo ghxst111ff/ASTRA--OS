@@ -3,45 +3,6 @@
 
 
 
-    
-
-
-
-
-/* =========================================
-   ASTRA CORE REGISTRY
-========================================= */
-
-ASTRA.core = {
-
-
-    modules:[
-
-        "Journal",
-
-        "Performance",
-
-        "Context Engine",
-
-        "Memory System",
-
-        "Command Router",
-
-        "Mode Manager"
-
-    ]
-
-};
-
-
-console.log(
-"ASTRA Core Registry Loaded"
-);
-
-
-
-
-
 
 
 
