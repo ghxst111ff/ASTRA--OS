@@ -171,3 +171,23 @@ ASTRA.registerModule(
 "trading",
 TradingModule
 );
+
+ASTRA.commands.push({
+
+    trigger: "show strategy",
+
+    action(){
+        TradingModule.show();
+    }
+
+});
+
+ASTRA.commands.push({
+
+    trigger: "my trading system",
+
+    action(){
+        TradingModule.show();
+    }
+
+});
