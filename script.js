@@ -404,53 +404,6 @@ document.querySelectorAll(".module-btn").forEach(button => {
 
 
 // ===================================
-// ASTRA LEARNING ENGINE
-// ===================================
-
-ASTRA.learn = function(type, data){
-
-    const key = "ASTRA_LEARNING";
-
-    let database = [];
-
-    try{
-
-        database = JSON.parse(
-            localStorage.getItem(key)
-        ) || [];
-
-    }catch{
-
-        database = [];
-
-    }
-
-
-    if(!Array.isArray(database)){
-        database = [];
-    }
-
-
-    database.push({
-
-        time: new Date().toISOString(),
-
-        data: data
-
-    });
-
-
-    localStorage.setItem(
-        key,
-        JSON.stringify(database)
-    );
-
-};
-
-
-
-
-// ===================================
 // ASTRA AI GATEWAY
 // ===================================
 
