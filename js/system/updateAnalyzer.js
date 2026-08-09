@@ -101,14 +101,14 @@ const UpdateAnalyzer = {
 };
 
 
-ASTRA.modules.updateAnalyzer =
-UpdateAnalyzer;
-
-
-console.log(
-"ASTRA Update Analyzer v2.0 Loaded"
+       ASTRA.registerModule(
+    "updateAnalyzer",
+    UpdateAnalyzer
 );
 
+console.log(
+    "ASTRA Update Analyzer v2.0 Loaded"
+);
 
 
 function getModuleType(feature){
@@ -145,11 +145,4 @@ function getModuleType(feature){
 
 }
 
-       ASTRA.registerModule(
-    "updateAnalyzer",
-    UpdateAnalyzer
-);
-
-console.log(
-    "ASTRA Update Analyzer v2.0 Loaded"
-);
+       
