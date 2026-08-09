@@ -17,17 +17,7 @@ TradingModule.show();
 
 });
 
-ASTRA.commands.push({
 
-trigger:"show strategy",
-
-action(){
-
-TradingModule.showStrategy();
-
-}
-
-});
 
 ASTRA.commands.push({
 

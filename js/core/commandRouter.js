@@ -271,8 +271,7 @@ Approve ${plan.feature}
 
 // SEND TO AI
 
-askAI(command);
-
+ASTRA.modules.ai.ask(command);
 
 }
 
