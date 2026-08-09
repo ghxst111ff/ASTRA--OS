@@ -236,35 +236,6 @@ document.querySelectorAll(".module-btn").forEach(button => {
 
 
 
-// ===================================
-// ASTRA AI GATEWAY
-// ===================================
-
-async function askAI(userMessage){
-
-    const context = ASTRA.modules.context.build();
-
-    const payload = {
-
-        question: userMessage,
-
-        context: context
-
-    };
-
-    console.log("AI PAYLOAD", payload);
-
-    // API will be connected here later
-
-    AstraReply(
-        "AI Gateway Ready."
-    );
-
-}
-
-
-
-
 
 
 
