@@ -184,7 +184,7 @@ TradeReplayModule;
 
 
 const type =
-getModuleType(update.feature);
+ASTRA.modules.moduleType.detect(update.feature);
 
 
 const blueprint =
