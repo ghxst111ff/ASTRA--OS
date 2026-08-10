@@ -70,15 +70,18 @@ const DependencyManager = {
 
             // Check if ASTRA module exists
 
-       const exists =
-ASTRA.modules[dep]
-||
-ASTRA.core.modules.includes(dep)
-||
-localStorage.getItem(
-    "ASTRA_"+dep.toUpperCase()
-);
-
+      const exists =
+    ASTRA.modules[dep]
+    ||
+    (
+        ASTRA.core &&
+        ASTRA.core.modules &&
+        ASTRA.core.modules.includes(dep)
+    )
+    ||
+    localStorage.getItem(
+        "ASTRA_" + dep.toUpperCase()
+    );
 
             if(!exists){
 
