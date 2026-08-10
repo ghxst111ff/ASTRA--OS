@@ -3,51 +3,68 @@
    ASTRA INSTALLER
 ========================================= */
 
-const Installer = {
+install(feature){
 
-    install(feature){
-      
-console.log("INSTALL REQUEST:", feature);
-      
-        const update =
-ASTRA.modules.updates.updates.find(
-    item =>
-    item.feature
-    .toLowerCase()
-    .includes(
-        feature.toLowerCase()
-    )
-);
+    console.log("INSTALL REQUEST:", feature);
 
-        if(!update){
+    const update =
+        ASTRA.modules.updates.updates.find(
+            item =>
+                item.feature
+                .toLowerCase()
+                .includes(
+                    feature.toLowerCase()
+                )
+        );
 
-            AstraReply("Update not found.");
+    if(!update){
 
-            return;
+        AstraReply("Update not found.");
 
-        }
-
-        if(update.status !== "approved"){
-          
-console.log("FOUND UPDATE:", update);
-            AstraReply(
-                "This update must be approved first."
-            );
-
-            return;
-
-        }
-
-        ASTRA.modules.updates.install(feature);
-
-        ASTRA.modules.verifier.verify(
-update.feature
-);
+        return false;
 
     }
 
-};
+    if(update.status !== "approved"){
 
+        console.log("FOUND UPDATE:", update);
+
+        AstraReply(
+            "This update must be approved first."
+        );
+
+        return false;
+
+    }
+
+    // VERIFY BEFORE INSTALLING
+    const verified =
+        ASTRA.modules.verifier.verify(
+            update.feature
+        );
+
+    if(!verified){
+
+        AstraReply(
+            "Installation blocked. Verification failed ❌"
+        );
+
+        return false;
+
+    }
+
+    // Only install after verification passes
+    ASTRA.modules.updates.install(
+        feature
+    );
+
+    AstraReply(
+        "Installation completed successfully ✅"
+    );
+
+    return true;
+
+}
 ASTRA.registerModule(
     "installer",
     Installer
