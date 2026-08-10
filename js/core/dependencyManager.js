@@ -1,100 +1,95 @@
-
 /* =========================================
    ASTRA DEPENDENCY MANAGER v1.0
 ========================================= */
 
 const DependencyManager = {
 
+    dependencies: {
 
-    dependencies:{
-
-
-        "Backtesting Mode":[
-
+        "Backtesting Mode": [
             "Journal",
-
             "Performance",
-
             "Context Engine"
-
         ],
 
-
-        "Screen Intelligence":[
-
+        "Screen Intelligence": [
             "Vision System",
-
             "Context Engine"
-
         ],
 
-
-        "Voice Assistant":[
-
+        "Voice Assistant": [
             "Voice Engine",
-
             "Command Router"
-
         ]
-
 
     },
 
-
-    check(feature){
-
+    check(feature) {
 
         const needs =
-        this.dependencies[feature]
-        ||
-        [];
-
+            this.dependencies[feature]
+            ||
+            [];
 
         let result = {
 
+            feature: feature,
 
-            feature:feature,
+            required: needs,
 
-            required:needs,
+            missing: [],
 
-            missing:[],
-
-            ready:true
+            ready: true
 
         };
 
-
-
         needs.forEach(dep => {
 
-    const moduleAliases = {
-        "Journal": "journal",
-        "Performance": "performance",
-        "Context Engine": "context"
-    };
+            const moduleAliases = {
 
-    const moduleName = moduleAliases[dep] || dep.toLowerCase();
+                "Journal": "journal",
+                "Performance": "performance",
+                "Context Engine": "context"
 
-    const exists =
-        ASTRA.modules[moduleName]
-        ||
-        (
-            ASTRA.core &&
-            ASTRA.core.modules &&
-            ASTRA.core.modules.includes(moduleName)
-        )
-        ||
-        localStorage.getItem(
-            "ASTRA_" + moduleName.toUpperCase()
-        );
+            };
 
-    if(!exists){
-        result.missing.push(dep);
-        result.ready = false;
+            const moduleName =
+                moduleAliases[dep]
+                ||
+                dep.toLowerCase();
+
+            const exists =
+                ASTRA.modules[moduleName]
+                ||
+                (
+                    ASTRA.core &&
+                    ASTRA.core.modules &&
+                    ASTRA.core.modules.includes(moduleName)
+                )
+                ||
+                localStorage.getItem(
+                    "ASTRA_" + moduleName.toUpperCase()
+                );
+
+            if (!exists) {
+
+                result.missing.push(dep);
+
+                result.ready = false;
+
+            }
+
+        });
+
+        return result;
+
     }
 
-});
+};
+
+ASTRA.modules.dependencies =
+    DependencyManager;
 
 console.log(
-"ASTRA Dependency Manager Loaded"
+    "ASTRA Dependency Manager Loaded"
 );
