@@ -8,47 +8,103 @@ const SystemVerifier = {
 
     verify(feature){
 
-        let checks = [];
-        let passed = true;
+    let checks = [];
+    let passed = true;
+
+    // Check update exists
+
+    const update =
+        ASTRA.modules.updates.updates.find(
+            item =>
+                item.feature
+                .toLowerCase()
+                .includes(
+                    feature.toLowerCase()
+                )
+        );
+
+    if(update){
+
+        checks.push(
+            "Update record found ✅"
+        );
+
+    } else {
+
+        checks.push(
+            "Update record missing ❌"
+        );
+
+        passed = false;
+
+    }
 
 
-        // Check update exists
+    // Check module exists
 
-        const update =
-            ASTRA.modules.updates.updates.find(
-                item =>
-                    item.feature
-                    .toLowerCase()
-                    .includes(
-                        feature.toLowerCase()
-                    )
-            );
+    if(
+        update &&
+        update.module &&
+        ASTRA.modules[update.module]
+    ){
 
+        checks.push(
+            "Module connected ✅"
+        );
 
-        if(update){
+    } else {
 
-            checks.push(
-                "Update record found ✅"
-            );
+        checks.push(
+            "Module missing ❌"
+        );
 
-        } else {
+        passed = false;
 
-            checks.push(
-                "Update record missing ❌"
-            );
-
-            passed = false;
-
-        }
+    }
 
 
-        // Check module exists
+    // Check command system
 
-        if(
-            update &&
-            update.module &&
-            ASTRA.modules[update.module]
-        ){
+    if(
+        ASTRA.modules.command &&
+        typeof ASTRA.modules.command.process === "function"
+    ){
+
+        checks.push(
+            "Command router connected ✅"
+        );
+
+    } else {
+
+        checks.push(
+            "Command router missing ❌"
+        );
+
+        passed = false;
+
+    }
+
+
+    AstraReply(
+`SYSTEM VERIFICATION
+
+Feature:
+${feature}
+
+${checks.join("")}
+
+Status:
+${passed ? "VERIFIED ✅" : "FAILED ❌"}`
+    );
+
+
+    return passed;
+
+}
+
+
+
+        // Check module registry
 
             checks.push(
                 "Module connected ✅"
