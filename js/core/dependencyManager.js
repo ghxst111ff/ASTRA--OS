@@ -65,48 +65,35 @@ const DependencyManager = {
 
 
 
-        needs.forEach(dep=>{
+        needs.forEach(dep => {
 
+    const moduleAliases = {
+        "Journal": "journal",
+        "Performance": "performance",
+        "Context Engine": "context"
+    };
 
-            // Check if ASTRA module exists
+    const moduleName = moduleAliases[dep] || dep.toLowerCase();
 
-      const exists const moduleAliases = {
-        
-    "Journal": "journal",
-    "Performance": "performance",
-    "Context Engine": "context"
-};
+    const exists =
+        ASTRA.modules[moduleName]
+        ||
+        (
+            ASTRA.core &&
+            ASTRA.core.modules &&
+            ASTRA.core.modules.includes(moduleName)
+        )
+        ||
+        localStorage.getItem(
+            "ASTRA_" + moduleName.toUpperCase()
+        );
 
-const moduleName =
-    moduleAliases[dep] || dep.toLowerCase();
-
-const exists =
-    ASTRA.modules[moduleName]
-    ||
-    (
-        ASTRA.core &&
-        ASTRA.core.modules &&
-        ASTRA.core.modules.includes(moduleName)
-    )
-    ||
-    localStorage.getItem(
-        "ASTRA_" + moduleName.toUpperCase()
-    );
-
-
-
-        return result;
-
-
+    if(!exists){
+        result.missing.push(dep);
+        result.ready = false;
     }
 
-
-};
-
-
-ASTRA.modules.dependencies =
-DependencyManager;
-
+});
 
 console.log(
 "ASTRA Dependency Manager Loaded"
