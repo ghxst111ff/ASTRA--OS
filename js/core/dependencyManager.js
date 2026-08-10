@@ -70,29 +70,28 @@ const DependencyManager = {
 
             // Check if ASTRA module exists
 
-      const exists =
-    ASTRA.modules[dep]
+      const exists const moduleAliases = {
+        
+    "Journal": "journal",
+    "Performance": "performance",
+    "Context Engine": "context"
+};
+
+const moduleName =
+    moduleAliases[dep] || dep.toLowerCase();
+
+const exists =
+    ASTRA.modules[moduleName]
     ||
     (
         ASTRA.core &&
         ASTRA.core.modules &&
-        ASTRA.core.modules.includes(dep)
+        ASTRA.core.modules.includes(moduleName)
     )
     ||
     localStorage.getItem(
-        "ASTRA_" + dep.toUpperCase()
+        "ASTRA_" + moduleName.toUpperCase()
     );
-
-            if(!exists){
-
-                result.missing.push(dep);
-
-                result.ready=false;
-
-            }
-
-
-        });
 
 
 
