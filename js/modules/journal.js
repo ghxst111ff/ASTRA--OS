@@ -66,10 +66,10 @@ if (ASTRA.modules.performance) {
 }
     save();
 
-    ASTRA.learn(
-        "journal",
-        trade
-    );
+   ASTRA.modules.learning.learn(
+    "journal",
+    trade
+);
 
     AstraReply(
         "Trade added to journal."
