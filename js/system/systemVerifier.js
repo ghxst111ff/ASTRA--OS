@@ -9,19 +9,20 @@ const SystemVerifier = {
     verify(feature){
 
         let checks = [];
+        let passed = true;
 
 
         // Check update exists
 
         const update =
-        ASTRA.modules.updates.updates.find(
-            item =>
-            item.feature
-            .toLowerCase()
-            .includes(
-                feature.toLowerCase()
-            )
-        );
+            ASTRA.modules.updates.updates.find(
+                item =>
+                    item.feature
+                    .toLowerCase()
+                    .includes(
+                        feature.toLowerCase()
+                    )
+            );
 
 
         if(update){
@@ -36,38 +37,70 @@ const SystemVerifier = {
                 "Update record missing ❌"
             );
 
+            passed = false;
+
         }
 
 
+        // Check module exists
 
-        // Check module registry
+        if(
+            update &&
+            update.module &&
+            ASTRA.modules[update.module]
+        ){
 
-        checks.push(
-            "ASTRA core connected ✅"
-        );
+            checks.push(
+                "Module connected ✅"
+            );
+
+        } else {
+
+            checks.push(
+                "Module missing ❌"
+            );
+
+            passed = false;
+
+        }
 
 
         // Check command system
 
-        checks.push(
-            "Command router connected ✅"
-        );
+        if(
+            ASTRA.modules.command &&
+            typeof ASTRA.modules.command.process === "function"
+        ){
+
+            checks.push(
+                "Command router connected ✅"
+            );
+
+        } else {
+
+            checks.push(
+                "Command router missing ❌"
+            );
+
+            passed = false;
+
+        }
 
 
         AstraReply(
-
 `SYSTEM VERIFICATION
 
 Feature:
 ${feature}
 
-${checks.join("<br>")}
+${checks.join("")}
 
 Status:
-Ready`
-
+${passed ? "VERIFIED ✅" : "FAILED ❌"}`
         );
 
+
+        return passed;
 
     }
 
