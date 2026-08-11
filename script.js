@@ -1,162 +1,18 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /* =========================================
-   ASTRA UI COMMAND BRIDGE v1.0
+   ASTRA UI COMMAND BRIDGE v2.0
 ========================================= */
-
 window.addEventListener("DOMContentLoaded",()=>{
-
-
-const sendBtn =
-document.getElementById("sendBtn");
-
-
-const input =
-document.getElementById("commandInput");
-
-
-if(!sendBtn || !input){
-
-console.log(
-"ASTRA UI bridge missing elements"
-);
-
-return;
-
-}
-
-
-
-sendBtn.addEventListener("click",()=>{
-
-
-const command =
-input.value.trim();
-
-
-if(
-    ASTRA &&
-    ASTRA.modules &&
-    ASTRA.modules.command
-){
-
-    ASTRA.modules.command.process(command);
-
-} else {
-  
-    AstraReply("Command system not loaded.");
-
-}
-
-
-
-input.value="";
-
-
+    const sendBtn=document.getElementById("sendBtn"), input=document.getElementById("commandInput"), voiceBtn=document.getElementById("voiceBtn"), viewScreenBtn=document.getElementById("viewScreenBtn");
+    if(sendBtn&&input){
+        const send=()=>{const command=input.value.trim();if(!command)return;ASTRA.modules.response?.user?.(command);ASTRA.modules.command?.process?.(command);input.value="";};
+        sendBtn.addEventListener("click",send);
+        input.addEventListener("keydown",e=>{if(e.key==="Enter")send();});
+    }
+    voiceBtn?.addEventListener("click",()=>{const active=ASTRA.modules.voice?.toggle?.();voiceBtn.classList.toggle("active",!!active);});
+    viewScreenBtn?.addEventListener("click",()=>ASTRA.modules.screen?.startCapture?.());
+    document.querySelectorAll(".module-btn").forEach(button=>button.addEventListener("click",()=>{
+        const panel=document.getElementById((button.dataset.module||button.innerText).toLowerCase().trim());
+        if(panel)panel.classList.toggle("active");
+    }));
+    console.log("ASTRA UI Command Bridge v2.0 Loaded");
 });
-
- 
-
-input.addEventListener("keydown",(e)=>{
-
-
-if(e.key==="Enter"){
-
-sendBtn.click();
-
-}
-
-
-});
-
-
-console.log(
-"ASTRA UI Command Bridge Loaded"
-);
-
-
-});
-
-// =========================================
-// ASTRA PANEL BUTTON CONNECTIONS
-// =========================================
-
-document.getElementById("journal")
-?.addEventListener("click",()=>{
-
-
-});
-
-
-document.getElementById("trading")
-?.addEventListener("click",()=>{
-
-});
-
-
-document.getElementById("memory")
-?.addEventListener("click",()=>{
-
-
-});
-
-
-document.getElementById("performance")
-?.addEventListener("click",()=>{
-
-});
-
-
-document.getElementById("screen")
-?.addEventListener("click",()=>{
-
-
-});
-
-
-
-// ASTRA MODULE BUTTON CONTROL
-
-document.querySelectorAll(".module-btn").forEach(button => {
-
-    button.addEventListener("click", () => {
-
-        const panelName = button.innerText
-            .toLowerCase()
-            .trim();
-
-        const panel = document.getElementById(panelName);
-
-        if (!panel) return;
-
-        panel.classList.toggle("active");
-
-    });
-
-});
-
-
-
-
-
-
-
-
-
