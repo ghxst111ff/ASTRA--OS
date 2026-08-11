@@ -1,132 +1,121 @@
-
 /* =========================================
-   ASTRA SCREEN VIEW MODULE v1.0
+   ASTRA SCREEN VIEW MODULE v2.0
+   Screen capture + market screening
 ========================================= */
 
 const ScreenModule = (()=>{
+    let stream = null;
+    let video = null;
+    let lastAnalysis = null;
 
+    function panel(){
+        return document.getElementById("screen") || document.getElementById("screenPanel");
+    }
+    function output(){ return document.getElementById("screenOutput"); }
 
-function open(){
+    function open(){
+        const screen = panel();
+        if(!screen){ AstraReply("Screen panel not found."); return false; }
+        screen.style.display = "block";
+        screen.classList.add("active");
+        AstraReply("Screen view opened.");
+        return true;
+    }
 
-const screen =
-document.getElementById("screenPanel");
+    function close(){
+        stopCapture();
+        const screen = panel();
+        if(screen){ screen.style.display = "none"; screen.classList.remove("active"); }
+        AstraReply("Screen view closed.");
+    }
 
+    async function startCapture(){
+        if(!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia){
+            AstraReply("Screen capture is not supported by this browser.");
+            return false;
+        }
+        open();
+        try{
+            stopCapture();
+            stream = await navigator.mediaDevices.getDisplayMedia({video:{cursor:"always"},audio:false});
+            video = document.createElement("video");
+            video.autoplay = true;
+            video.playsInline = true;
+            video.muted = true;
+            video.style.width = "100%";
+            video.style.maxHeight = "70vh";
+            video.style.objectFit = "contain";
+            video.style.background = "#000";
+            video.srcObject = stream;
+            const target = output();
+            if(target){ target.innerHTML = ""; target.appendChild(video); }
+            const track = stream.getVideoTracks()[0];
+            if(track) track.addEventListener("ended",()=>{
+                stream = null; video = null;
+                if(target) target.innerHTML = "Screen sharing stopped.";
+            });
+            AstraReply("Screen sharing connected.");
+            return true;
+        }catch(error){
+            console.error("ASTRA screen capture:",error);
+            AstraReply("Screen sharing was cancelled or blocked.");
+            return false;
+        }
+    }
 
-if(screen){
+    function stopCapture(){
+        if(stream){ stream.getTracks().forEach(track=>track.stop()); stream=null; }
+        if(video){ video.srcObject=null; video.remove(); video=null; }
+    }
 
-screen.style.display = "block";
+    function status(){
+        AstraReply(stream ? "Screen module online. Screen sharing active." : "Screen module online. Screen sharing inactive.");
+    }
 
-AstraReply(
-"Screen view opened."
-);
+    function analyze(candles){
+        const data = Array.isArray(candles) ? candles : (ASTRA.modules.marketData?.getCandles?.() || []);
+        if(data.length < 3) return {ready:false,reason:"At least 3 candles are required.",candles:data.length};
+        const recent = data.slice(-Math.min(20,data.length));
+        const first = recent[0].close;
+        const last = recent[recent.length-1].close;
+        const midpoint = recent.reduce((sum,c)=>sum+c.close,0)/recent.length;
+        const highs = recent.map(c=>c.high);
+        const lows = recent.map(c=>c.low);
+        const high = Math.max(...highs);
+        const low = Math.min(...lows);
+        const previousHigh = Math.max(...highs.slice(0,-1));
+        const previousLow = Math.min(...lows.slice(0,-1));
+        let direction="NEUTRAL";
+        if(last>first && last>midpoint) direction="BULLISH";
+        if(last<first && last<midpoint) direction="BEARISH";
+        const structureShift = last>previousHigh ? "BULLISH SHIFT" : last<previousLow ? "BEARISH SHIFT" : "NO CLEAR SHIFT";
+        lastAnalysis={ready:true,direction,structure:structureShift,range:{high,low},liquidity:{buySide:high,sellSide:low},candles:recent.length,lastClose:last,timestamp:new Date().toISOString()};
+        return {...lastAnalysis};
+    }
 
-}
-else{
+    function getAnalysis(){ return lastAnalysis ? {...lastAnalysis} : null; }
 
-AstraReply(
-"Screen panel not found."
-);
+    function showAnalysis(){
+        const result=analyze();
+        if(!result.ready){ AstraReply("Screen analysis is waiting for market data."); return result; }
+        AstraReply(`SCREEN ANALYSIS<br><br>Direction: ${result.direction}<br>Structure: ${result.structure}<br>Liquidity High: ${result.liquidity.buySide}<br>Liquidity Low: ${result.liquidity.sellSide}<br>Candles: ${result.candles}`);
+        return result;
+    }
 
-}
-
-}
-
-
-
-function close(){
-
-const screen =
-document.getElementById("screenPanel");
-
-
-if(screen){
-
-screen.style.display = "none";
-
-AstraReply(
-"Screen view closed."
-);
-
-}
-
-}
-
-
-
-function status(){
-
-AstraReply(
-"Screen module online. Waiting for vision integration."
-);
-
-}
-
-
-
-return {
-
-name:"Screen View",
-
-version:"1.0",
-
-open,
-
-close,
-
-status,
-
-
-commands:[
-
-{
-
-trigger:"open screen",
-
-action(){
-
-open();
-
-}
-
-},
-
-
-{
-
-trigger:"close screen",
-
-action(){
-
-close();
-
-}
-
-},
-
-
-{
-
-trigger:"screen status",
-
-action(){
-
-status();
-
-}
-
-}
-
-]
-
-
-};
-
-
+    return {
+        name:"Screen View",version:"2.0",open,close,startCapture,stopCapture,status,analyze,getAnalysis,showAnalysis,
+        get sharing(){return !!stream;},
+        commands:[
+            {trigger:"open screen",action:open},
+            {trigger:"close screen",action:close},
+            {trigger:"screen status",action:status},
+            {trigger:"share screen",action:startCapture},
+            {trigger:"stop screen",action:stopCapture},
+            {trigger:"screen analysis",action:showAnalysis}
+        ]
+    };
 })();
 
-
-
-ASTRA.registerModule(
-"screen",
-ScreenModule
-);
+ASTRA.registerModule("screen",ScreenModule);
+ScreenModule.commands.forEach(command=>ASTRA.commands.push(command));
+console.log("ASTRA Screen View v2.0 Loaded");
