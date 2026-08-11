@@ -1,17 +1,12 @@
-
-
 /* =========================================
    ASTRA CODE GENERATOR v2.0
 ========================================= */
 
 const CodeGenerator = {
 
-
     generate(update){
 
-
         let result = {
-
 
             module:update.module,
 
@@ -19,10 +14,7 @@ const CodeGenerator = {
 
             files:[]
 
-
         };
-
-
 
         if(
             update.feature
@@ -54,7 +46,6 @@ return this.trades;
 
 };
 
-
 ASTRA.modules.backtesting =
 BacktestingModule;
 
@@ -62,10 +53,7 @@ BacktestingModule;
 
             });
 
-
         }
-
-
 
         else if(
             update.feature
@@ -89,7 +77,6 @@ return "Screen analysis ready";
 
 };
 
-
 ASTRA.modules.screen =
 ScreenModule;
 
@@ -97,10 +84,7 @@ ScreenModule;
 
             });
 
-
         }
-
-
 
         else if(
             update.feature
@@ -124,7 +108,6 @@ return "Voice ready";
 
 };
 
-
 ASTRA.modules.voice =
 VoiceModule;
 
@@ -132,27 +115,23 @@ VoiceModule;
 
             });
 
-
         }
 
+        else if(
+            update.feature
+            .toLowerCase()
+            .includes("trade replay")
+        ){
 
-if(
-    update.feature
-    .toLowerCase()
-    .includes("trade replay")
-){
+            result.files.push({
 
-    result.files.push({
+                name:"TradeReplayModule.js",
 
-        name:"TradeReplayModule.js",
-
-        code:`
+                code:`
 
 const TradeReplayModule = {
 
-
 trades:[],
-
 
 record(trade){
 
@@ -160,73 +139,50 @@ this.trades.push(trade);
 
 },
 
-
 getTrades(){
 
 return this.trades;
 
 }
 
-
 };
-
 
 ASTRA.modules.tradeReplay =
 TradeReplayModule;
 
 `
 
-    });
+            });
 
-}
-      
+        }
+
         else {
 
+            const type =
+            ASTRA.modules.moduleType.detect(update.feature);
 
-const type =
-ASTRA.modules.moduleType.detect(update.feature);
+            const blueprint =
+            ASTRA.modules.blueprints[type];
 
+            result.files =
+            blueprint.files.map(file=>({
 
-const blueprint =
-ASTRA.modules.blueprints[type];
+                name:
+                update.module +
+                "_" +
+                file.replace(/\s/g,"") +
+                ".js",
 
+                code:
+                `// ASTRA Generated Module\n\nModule:\n${update.module}\n\nComponent:\n${file}\n\n`
 
+            }));
 
-result.files =
-blueprint.files.map(file=>({
-
-
-name:
-update.module +
-"_" +
-file.replace(/\s/g,"") +
-".js",
-
-
-
-code:
-`// ASTRA Generated Module
-
-Module:
-${update.module}
-
-Component:
-${file}
-
-`
-
-}));
-
-
-}
-
-
+        }
 
         return result;
 
-
     }
-
 
 };
 
@@ -235,7 +191,6 @@ ASTRA.registerModule(
     CodeGenerator
 );
 
-
 console.log(
-"ASTRA Code Generator v2.0 Loaded"
+    "ASTRA Code Generator v2.0 Loaded"
 );
