@@ -1,139 +1,105 @@
 
 /* =========================================
-   ASTRA INSTALLER
+   ASTRA INSTALLER v2.0
 ========================================= */
 
 const Installer = {
-install(feature){
 
-    console.log("INSTALL REQUEST:", feature);
+    install(feature){
 
-    const update =
-        ASTRA.modules.updates.updates.find(
-            item =>
-                item.feature
-                .toLowerCase()
-                .includes(feature.toLowerCase())
-        );
+        console.log("INSTALL REQUEST:", feature);
 
-    if(!update){
+        const update =
+            ASTRA.modules.updates.updates.find(
+                item =>
+                    item.feature
+                    .toLowerCase()
+                    .includes(feature.toLowerCase())
+            );
 
-        AstraReply("Update not found.");
+        if(!update){
+            AstraReply("Update not found.");
+            return false;
+        }
 
-        return false;
+        if(update.status !== "approved"){
+            console.log("FOUND UPDATE:", update);
+            AstraReply("This update must be approved first.");
+            return false;
+        }
 
-    }
+        const builds =
+            JSON.parse(
+                localStorage.getItem("ASTRA_BUILDS")
+            ) || [];
 
-    if(update.status !== "approved"){
+        const build =
+            [...builds].reverse().find(
+                item =>
+                    item.feature === update.feature &&
+                    item.module === update.module &&
+                    item.test === "passed" &&
+                    item.status === "tested"
+            );
 
-        console.log("FOUND UPDATE:", update);
+        if(!build){
+            AstraReply(
+                "Installation blocked. No tested build artifact found."
+            );
+            return false;
+        }
 
-        AstraReply(
-            "This update must be approved first."
-        );
+        try{
+            build.files.forEach(file => {
 
-        return false;
+                if(!file || typeof file.code !== "string"){
+                    throw new Error("Invalid generated file.");
+                }
 
-    }
+                new Function(file.code)();
 
-    // Find the most recent tested build artifact
-    const builds =
-        JSON.parse(
-            localStorage.getItem("ASTRA_BUILDS")
-        ) || [];
+            });
+        }catch(error){
 
-    const build =
-        [...builds].reverse().find(
-            item =>
-                item.feature === update.feature &&
-                item.module === update.module &&
-                item.test === "passed" &&
-                item.status === "tested"
-        );
+            console.error("INSTALL LOAD FAILED:", error);
 
-    if(!build){
+            AstraReply(
+                "Installation blocked. Generated module failed to load."
+            );
 
-        AstraReply(
-            "Installation blocked. No tested build artifact found."
-        );
+            return false;
+        }
 
-        return false;
+        if(!ASTRA.modules[update.module]){
+            AstraReply(
+                "Installation blocked. Module registration failed."
+            );
+            return false;
+        }
 
-    }
+        const verified =
+            ASTRA.modules.verifier.verify(
+                update.feature
+            );
 
-    // Load the tested generated code
-    try{
+        if(!verified){
+            AstraReply(
+                "Installation blocked. Verification failed ❌"
+            );
+            return false;
+        }
 
-        build.files.forEach(file => {
-
-            if(
-                !file ||
-                typeof file.code !== "string"
-            ){
-
-                throw new Error(
-                    "Invalid generated file."
-                );
-
-            }
-
-            new Function(file.code)();
-
-        });
-
-    }catch(error){
-
-        console.error(
-            "INSTALL LOAD FAILED:",
-            error
-        );
-
-        AstraReply(
-            "Installation blocked. Generated module failed to load."
-        );
-
-        return false;
-
-    }
-
-    // Make sure the generated module registered correctly
-    if(!ASTRA.modules[update.module]){
+        ASTRA.modules.updates.install(feature);
 
         AstraReply(
-            "Installation blocked. Module registration failed."
+            "Installation completed successfully ✅"
         );
 
-        return false;
+        return true;
 
     }
 
-    // Verify AFTER loading the generated module
-    const verified =
-        ASTRA.modules.verifier.verify(
-            update.feature
-        );
-
-    if(!verified){
-
-        AstraReply(
-            "Installation blocked. Verification failed ❌"
-        );
-
-        return false;
-
-    }
-
-    ASTRA.modules.updates.install(
-        feature
-    );
-
-    AstraReply(
-        "Installation completed successfully ✅"
-    );
-
-    return true;
-
-}
+};
 
 ASTRA.registerModule(
     "installer",
@@ -141,6 +107,5 @@ ASTRA.registerModule(
 );
 
 console.log(
-"ASTRA Installer Loaded"
+    "ASTRA Installer v2.0 Loaded"
 );
-
