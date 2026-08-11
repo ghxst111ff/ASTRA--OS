@@ -1,5 +1,5 @@
 /* =========================================
-   ASTRA CODE GENERATOR v2.0
+   ASTRA CODE GENERATOR v2.1
 ========================================= */
 
 const CodeGenerator = {
@@ -7,13 +7,9 @@ const CodeGenerator = {
     generate(update){
 
         let result = {
-
             module:update.module,
-
             feature:update.feature,
-
             files:[]
-
         };
 
         if(
@@ -21,38 +17,32 @@ const CodeGenerator = {
             .toLowerCase()
             .includes("backtesting")
         ){
-
             result.files.push({
-
                 name:"BacktestingModule.js",
-
                 code:`
 
 const BacktestingModule = {
 
+name:"${update.module}",
+version:"${update.version || "1.0"}",
+
 trades:[],
 
 addTrade(trade){
-
-this.trades.push(trade);
-
+    this.trades.push(trade);
 },
 
 getTrades(){
-
-return this.trades;
-
+    return this.trades;
 }
 
 };
 
-ASTRA.modules.backtesting =
+ASTRA.modules.${update.module} =
 BacktestingModule;
 
 `
-
             });
-
         }
 
         else if(
@@ -60,30 +50,26 @@ BacktestingModule;
             .toLowerCase()
             .includes("screen")
         ){
-
             result.files.push({
-
                 name:"ScreenModule.js",
-
                 code:`
 
 const ScreenModule = {
 
+name:"${update.module}",
+version:"${update.version || "1.0"}",
+
 analyze(){
-
-return "Screen analysis ready";
-
+    return "Screen analysis ready";
 }
 
 };
 
-ASTRA.modules.screen =
+ASTRA.modules.${update.module} =
 ScreenModule;
 
 `
-
             });
-
         }
 
         else if(
@@ -91,30 +77,26 @@ ScreenModule;
             .toLowerCase()
             .includes("voice")
         ){
-
             result.files.push({
-
                 name:"VoiceModule.js",
-
                 code:`
 
 const VoiceModule = {
 
+name:"${update.module}",
+version:"${update.version || "1.0"}",
+
 listen(){
-
-return "Voice ready";
-
+    return "Voice ready";
 }
 
 };
 
-ASTRA.modules.voice =
+ASTRA.modules.${update.module} =
 VoiceModule;
 
 `
-
             });
-
         }
 
         else if(
@@ -122,38 +104,32 @@ VoiceModule;
             .toLowerCase()
             .includes("trade replay")
         ){
-
             result.files.push({
-
                 name:"TradeReplayModule.js",
-
                 code:`
 
 const TradeReplayModule = {
 
+name:"${update.module}",
+version:"${update.version || "1.0"}",
+
 trades:[],
 
 record(trade){
-
-this.trades.push(trade);
-
+    this.trades.push(trade);
 },
 
 getTrades(){
-
-return this.trades;
-
+    return this.trades;
 }
 
 };
 
-ASTRA.modules.tradeReplay =
+ASTRA.modules.${update.module} =
 TradeReplayModule;
 
 `
-
             });
-
         }
 
         else {
@@ -192,5 +168,5 @@ ASTRA.registerModule(
 );
 
 console.log(
-    "ASTRA Code Generator v2.0 Loaded"
+    "ASTRA Code Generator v2.1 Loaded"
 );
