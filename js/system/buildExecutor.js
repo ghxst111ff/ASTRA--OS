@@ -1,9 +1,42 @@
 
 /* =========================================
-   ASTRA BUILD EXECUTOR v2.0
+   ASTRA BUILD EXECUTOR v2.1
 ========================================= */
 
 const BuildExecutor = {
+
+
+    // Validate generated JavaScript without executing it.
+    // This gives the build pipeline a real pre-install test
+    // while keeping generated code behind the approval gate.
+    validate(code){
+
+        if(!code || typeof code !== "string"){
+            return {
+                passed:false,
+                error:"Generated code is missing."
+            };
+        }
+
+        try{
+
+            new Function(code);
+
+            return {
+                passed:true,
+                error:null
+            };
+
+        }catch(error){
+
+            return {
+                passed:false,
+                error:error.message
+            };
+
+        }
+
+    },
 
 
     execute(update, code){
@@ -15,6 +48,12 @@ const BuildExecutor = {
         ) || [];
 
 
+        const validation =
+            code.files.every(
+                file =>
+                    this.validate(file.code).passed
+            );
+
 
         const build = {
 
@@ -25,7 +64,9 @@ const BuildExecutor = {
 
             files:code.files,
 
-            status:"created",
+            status:validation ? "tested" : "failed",
+
+            test:validation ? "passed" : "failed",
 
             date:
             new Date().toLocaleString()
@@ -45,6 +86,25 @@ const BuildExecutor = {
         );
 
 
+        if(!validation){
+
+            AstraReply(
+`BUILD TEST FAILED
+
+Feature:
+${build.feature}
+
+Module:
+${build.module}
+
+Status:
+FAILED`
+            );
+
+            return build;
+
+        }
+
 
         AstraReply(
 
@@ -59,8 +119,11 @@ ${build.module}
 Files Generated:
 ${build.files.length}
 
+Test:
+PASSED
+
 Status:
-READY FOR ACTIVATION`
+READY FOR APPROVAL`
 
         );
 
@@ -80,5 +143,5 @@ ASTRA.registerModule(
 );
 
 console.log(
-"ASTRA Build Executor v2.0 Loaded"
+"ASTRA Build Executor v2.1 Loaded"
 );
