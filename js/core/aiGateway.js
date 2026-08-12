@@ -1,5 +1,5 @@
 /* =========================================
-   ASTRA AI GATEWAY v2.2
+   ASTRA AI GATEWAY v2.3
    Text + optional chart-frame vision payloads
 ========================================= */
 const AIGateway={
@@ -20,7 +20,15 @@ const AIGateway={
         return JSON.stringify(data);
     },
     async ask(userMessage, extra={}){
-        const context=Object.assign({},ASTRA.modules.context?.build?.()||{},extra.context||{});
+        const context=Object.assign({},ASTRA.modules.context?.build?.()||{},extra.context||{}, {
+            astraResponseStyle:{
+                priority:"precise, simple, short",
+                maxParagraphs:3,
+                preferBullets:true,
+                avoidUnnecessaryExplanation:true,
+                answerQuestionDirectly:true
+            }
+        });
         const payload={question:userMessage,context};
         if(extra.image)payload.image=extra.image;
         if(extra.vision)payload.vision=true;
@@ -41,4 +49,4 @@ const AIGateway={
     }
 };
 ASTRA.registerModule("ai",AIGateway);
-console.log("ASTRA AI Gateway v2.2 Loaded");
+console.log("ASTRA AI Gateway v2.3 Loaded");
