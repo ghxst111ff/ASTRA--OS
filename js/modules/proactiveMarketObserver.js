@@ -1,131 +1,62 @@
 /* =========================================
-   ASTRA PROACTIVE MARKET OBSERVER v1.0
+   ASTRA PROACTIVE MARKET OBSERVER v2.0
    Conversational chart co-pilot
 ========================================= */
 
-const ProactiveMarketObserver = (() => {
-    let watching = false;
-    let timer = null;
-    let lastObservation = null;
-    let lastSpoken = "";
+const ProactiveMarketObserver=(()=>{
+    let watching=false,timer=null,visionTimer=null,lastObservation=null,lastSignature="",lastVisionAt=0;
+    const CONFIG={intervalMs:5000,visionIntervalMs:20000,cooldownMs:15000};
 
-    const CONFIG = {
-        intervalMs: 5000,
-        cooldownMs: 15000
-    };
+    function strategy(){return ASTRA.modules.trading?.strategy||{};}
+    function getScreenAnalysis(){const s=ASTRA.modules.screen;return s?.getAnalysis?.()||null;}
+    function getFrame(){return ASTRA.modules.screen?.getFrame?.({maxWidth:1280,quality:.55})||null;}
 
-    function strategy() {
-        return ASTRA.modules.trading?.strategy || {};
+    function buildObservation(analysis){
+        if(!analysis||analysis.ready===false)return null;
+        const observations=[];
+        if(analysis.liquidity)observations.push({type:"liquidity",message:"I’m seeing a liquidity-related area. I’m checking it against your liquidity model."});
+        if(analysis.structure||analysis.structureShift)observations.push({type:"structure",message:"I’m seeing a potential structure change. Compare it with your higher-timeframe context before treating it as an execution signal."});
+        return {observations,framework:strategy().framework||{},rules:strategy().rules||[],timestamp:Date.now()};
     }
 
-    function getScreenAnalysis() {
-        const screen = ASTRA.modules.screen;
-        if (!screen) return null;
-        if (typeof screen.getAnalysis === "function") return screen.getAnalysis();
-        return null;
-    }
-
-    function buildObservation(analysis) {
-        if (!analysis || analysis.ready === false) return null;
-
-        const framework = strategy().framework || {};
-        const rules = strategy().rules || [];
-        const observations = [];
-
-        if (analysis.liquidity || analysis.liquidityAreas) {
-            observations.push({
-                type: "liquidity",
-                message: "I’m seeing a liquidity-related area on the chart. Check that it is included in your current liquidity model."
-            });
-        }
-
-        if (analysis.supply || analysis.supplyZones) {
-            observations.push({
-                type: "supply",
-                message: "I’m seeing a possible supply area. I’d want to verify the structure and context before treating it as a valid zone."
-            });
-        }
-
-        if (analysis.demand || analysis.demandZones) {
-            observations.push({
-                type: "demand",
-                message: "I’m seeing a possible demand area. I’d want to verify the higher-timeframe context before treating it as a valid zone."
-            });
-        }
-
-        if (analysis.structure || analysis.marketStructure || analysis.structureShift) {
-            observations.push({
-                type: "structure",
-                message: "I’m seeing a potential structure change. Compare it with your higher-timeframe context before using it for execution."
-            });
-        }
-
-        return {
-            observations,
-            framework,
-            rules,
-            timestamp: Date.now()
-        };
-    }
-
-    function shouldSpeak(observation) {
-        if (!observation || !observation.observations.length) return false;
-        const signature = observation.observations.map(o => o.type).join("|");
-        if (signature === lastSpoken && Date.now() - (lastObservation?.timestamp || 0) < CONFIG.cooldownMs) {
-            return false;
-        }
+    function speakLocal(observation){
+        if(!observation?.observations?.length)return false;
+        const signature=observation.observations.map(o=>o.type).join("|");
+        if(signature===lastSignature&&Date.now()-lastObservation.timestamp<CONFIG.cooldownMs)return false;
+        lastSignature=signature; lastObservation=observation;
+        if(typeof AstraReply==="function")AstraReply(observation.observations[0].message);
         return true;
     }
 
-    function observe() {
-        const analysis = getScreenAnalysis();
-        const observation = buildObservation(analysis);
-        if (!observation) return null;
-
-        lastObservation = observation;
-
-        if (shouldSpeak(observation)) {
-            lastSpoken = observation.observations.map(o => o.type).join("|");
-            const message = observation.observations[0].message;
-            if (typeof AstraReply === "function") AstraReply(message);
-        }
-
-        return observation;
+    async function visionCheck(){
+        if(!watching||Date.now()-lastVisionAt<CONFIG.visionIntervalMs)return null;
+        const image=getFrame(); if(!image||!ASTRA.modules.ai?.ask)return null;
+        lastVisionAt=Date.now();
+        const rules=strategy().rules||[];
+        const framework=strategy().framework||{};
+        try{
+            return await ASTRA.modules.ai.ask(
+                "Act as my proactive trading co-pilot. Inspect the current chart image. Do not invent anything. Only speak if you can identify a meaningful, visible observation relevant to my trading system, such as a possible liquidity pool/sweep, supply or demand area, market-structure shift, displacement, or a conflict with my stated rules. If the image is insufficient, say nothing useful rather than guessing. Keep the observation concise and conversational.",
+                {vision:true,image,context:{observerMode:true,tradingFramework:framework,tradingRules:rules}}
+            );
+        }catch(error){console.warn("ASTRA observer vision check failed",error);return null;}
     }
 
-    function start() {
-        if (watching) return status();
-        watching = true;
-        observe();
-        timer = setInterval(observe, CONFIG.intervalMs);
+    async function observe(){
+        const local=buildObservation(getScreenAnalysis());
+        if(local)speakLocal(local);
+        return visionCheck();
+    }
+
+    function start(){
+        if(watching)return status();
+        watching=true; observe();
+        timer=setInterval(observe,CONFIG.intervalMs);
         return status();
     }
-
-    function stop() {
-        watching = false;
-        if (timer) clearInterval(timer);
-        timer = null;
-        return status();
-    }
-
-    function status() {
-        return {
-            watching,
-            intervalMs: CONFIG.intervalMs,
-            lastObservation
-        };
-    }
-
-    return {
-        name: "Proactive Market Observer",
-        version: "1.0",
-        start,
-        stop,
-        observe,
-        status
-    };
+    function stop(){watching=false;if(timer)clearInterval(timer);timer=null;lastSignature="";return status();}
+    function status(){return {watching,intervalMs:CONFIG.intervalMs,visionIntervalMs:CONFIG.visionIntervalMs,lastObservation};}
+    return {name:"Proactive Market Observer",version:"2.0",start,stop,observe,status};
 })();
-
-ASTRA.modules.proactiveMarketObserver = ProactiveMarketObserver;
-
-console.log("ASTRA Proactive Market Observer Loaded");
+ASTRA.modules.proactiveMarketObserver=ProactiveMarketObserver;
+console.log("ASTRA Proactive Market Observer v2.0 Loaded");
