@@ -1,6 +1,6 @@
 /* =========================================
    ASTRA TRADER PROFILE / TRADING INTELLIGENCE
-   v1.0
+   v1.1 — LIVE vs BACKTESTING SEPARATION
 ========================================= */
 
 const TraderProfileModule = (() => {
@@ -8,9 +8,8 @@ const TraderProfileModule = (() => {
     const STORAGE_KEY = "ASTRA_TRADER_PROFILE";
 
     const defaults = {
-        version: "1.0",
+        version: "1.1",
         lastScan: null,
-        confidence: {},
         system: {
             name: "Jay Fractal Market Delivery System",
             philosophy: [],
@@ -18,13 +17,24 @@ const TraderProfileModule = (() => {
             rules: []
         },
         preferences: {},
-        observedMarkets: [],
-        observedSetups: [],
-        strengths: [],
-        weaknesses: [],
-        developmentGoals: [],
+        liveTrading: {
+            markets: [],
+            setups: [],
+            strengths: [],
+            weaknesses: [],
+            developmentGoals: [],
+            tradeCount: 0
+        },
+        backtesting: {
+            markets: [],
+            setups: [],
+            strengths: [],
+            weaknesses: [],
+            developmentGoals: [],
+            tradeCount: 0
+        },
         evidence: {
-            journalTrades: 0,
+            liveJournalTrades: 0,
             backtestingTrades: 0,
             memories: 0
         }
@@ -32,12 +42,22 @@ const TraderProfileModule = (() => {
 
     function load() {
         try {
-            return Object.assign({}, defaults,
-                JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}
-            );
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+            return mergeDefaults(saved || {});
         } catch (e) {
             return JSON.parse(JSON.stringify(defaults));
         }
+    }
+
+    function mergeDefaults(saved) {
+        const fresh = JSON.parse(JSON.stringify(defaults));
+        return Object.assign(fresh, saved, {
+            system: Object.assign(fresh.system, saved.system || {}),
+            preferences: Object.assign(fresh.preferences, saved.preferences || {}),
+            liveTrading: Object.assign(fresh.liveTrading, saved.liveTrading || {}),
+            backtesting: Object.assign(fresh.backtesting, saved.backtesting || {}),
+            evidence: Object.assign(fresh.evidence, saved.evidence || {})
+        });
     }
 
     let profile = load();
@@ -63,33 +83,36 @@ const TraderProfileModule = (() => {
         };
     }
 
-    function scanJournal() {
+    // LIVE TRADING ONLY: journal data belongs to live trading progress.
+    function scanLiveTrading() {
         const journal = ASTRA.modules.journal;
         const data = journal && typeof journal.getData === "function"
             ? journal.getData()
             : { trades: [] };
 
         const trades = data.trades || [];
-        profile.evidence.journalTrades = trades.length;
+        profile.evidence.liveJournalTrades = trades.length;
+        profile.liveTrading.tradeCount = trades.length;
 
-        const markets = trades.map(t => t.pair).filter(Boolean);
-        profile.observedMarkets = unique(
-            profile.observedMarkets.concat(markets)
+        profile.liveTrading.markets = unique(
+            trades.map(t => t.pair).filter(Boolean)
         );
 
-        const setupNotes = trades
-            .map(t => t.setup || t.notes)
-            .filter(Boolean);
-        profile.observedSetups = unique(
-            profile.observedSetups.concat(setupNotes)
+        profile.liveTrading.setups = unique(
+            trades.map(t => t.setup || t.notes).filter(Boolean)
         );
     }
 
+    // BACKTESTING ONLY: never merge these trades into live trading data.
     function scanBacktesting() {
         const backtesting = ASTRA.modules.BacktestingModule ||
             ASTRA.modules.backtesting;
 
-        if (!backtesting) return;
+        if (!backtesting) {
+            profile.evidence.backtestingTrades = 0;
+            profile.backtesting.tradeCount = 0;
+            return;
+        }
 
         let trades = [];
         if (typeof backtesting.getTrades === "function") {
@@ -99,10 +122,14 @@ const TraderProfileModule = (() => {
         }
 
         profile.evidence.backtestingTrades = trades.length;
-        profile.observedMarkets = unique(
-            profile.observedMarkets.concat(
-                trades.map(t => t.pair || t.symbol).filter(Boolean)
-            )
+        profile.backtesting.tradeCount = trades.length;
+
+        profile.backtesting.markets = unique(
+            trades.map(t => t.pair || t.symbol).filter(Boolean)
+        );
+
+        profile.backtesting.setups = unique(
+            trades.map(t => t.setup || t.notes).filter(Boolean)
         );
     }
 
@@ -125,7 +152,7 @@ const TraderProfileModule = (() => {
 
     function scan() {
         scanTradingStrategy();
-        scanJournal();
+        scanLiveTrading();
         scanBacktesting();
         scanMemory();
 
@@ -142,33 +169,49 @@ const TraderProfileModule = (() => {
     function getContext() {
         return {
             traderProfile: getProfile(),
-            source: "ASTRA Trader Profile"
+            liveTrading: JSON.parse(JSON.stringify(profile.liveTrading)),
+            backtesting: JSON.parse(JSON.stringify(profile.backtesting)),
+            source: "ASTRA Trader Profile — live and backtesting separated"
         };
     }
 
     function show() {
         const p = profile;
         const system = p.system || {};
+        const live = p.liveTrading || {};
+        const backtest = p.backtesting || {};
 
         AstraReply(`
 🧠 ASTRA TRADER PROFILE
 
-Trading System:
+TRADING SYSTEM
 ${system.name || "Not established"}
 
-Observed Markets:
-${p.observedMarkets.length ? p.observedMarkets.join(", ") : "None recorded yet"}
+━━━━━━━━━━━━━━━━━━━━
+🔴 LIVE TRADING PROGRESS
+━━━━━━━━━━━━━━━━━━━━
 
-Journal Trades:
-${p.evidence.journalTrades}
+Live Trades: ${live.tradeCount || 0}
+Live Markets: ${live.markets.length ? live.markets.join(", ") : "None recorded"}
 
-Backtesting Trades:
-${p.evidence.backtestingTrades}
+Live Setups:
+${live.setups.length ? live.setups.map(s => "• " + s).join("\n") : "None recorded"}
 
-Memories:
-${p.evidence.memories}
+━━━━━━━━━━━━━━━━━━━━
+🟡 BACKTESTING PROGRESS
+━━━━━━━━━━━━━━━━━━━━
 
-Strategy Rules:
+Backtest Trades: ${backtest.tradeCount || 0}
+Backtest Markets: ${backtest.markets.length ? backtest.markets.join(", ") : "None recorded"}
+
+Backtest Setups:
+${backtest.setups.length ? backtest.setups.map(s => "• " + s).join("\n") : "None recorded"}
+
+━━━━━━━━━━━━━━━━━━━━
+🧠 STRATEGY
+━━━━━━━━━━━━━━━━━━━━
+
+Rules:
 ${(system.rules || []).map(r => "• " + r).join("\n") || "None recorded"}
 
 Last Scan:
@@ -176,23 +219,55 @@ ${p.lastScan || "Never"}
         `);
     }
 
+    function showLive() {
+        scan();
+        const live = profile.liveTrading;
+        AstraReply(`
+🔴 LIVE TRADING PROGRESS
+
+Trades: ${live.tradeCount}
+Markets: ${live.markets.length ? live.markets.join(", ") : "None recorded"}
+
+Setups:
+${live.setups.length ? live.setups.map(s => "• " + s).join("\n") : "None recorded"}
+        `);
+    }
+
+    function showBacktesting() {
+        scan();
+        const backtest = profile.backtesting;
+        AstraReply(`
+🟡 BACKTESTING PROGRESS
+
+Trades: ${backtest.tradeCount}
+Markets: ${backtest.markets.length ? backtest.markets.join(", ") : "None recorded"}
+
+Setups:
+${backtest.setups.length ? backtest.setups.map(s => "• " + s).join("\n") : "None recorded"}
+        `);
+    }
+
     function status() {
         return {
             name: "Trader Profile",
-            version: "1.0",
+            version: "1.1",
             lastScan: profile.lastScan,
-            evidence: Object.assign({}, profile.evidence),
-            markets: profile.observedMarkets.length
+            liveTradingTrades: profile.evidence.liveJournalTrades,
+            backtestingTrades: profile.evidence.backtestingTrades,
+            memories: profile.evidence.memories,
+            separation: true
         };
     }
 
     return {
         name: "Trader Profile",
-        version: "1.0",
+        version: "1.1",
         scan,
         getProfile,
         getContext,
         show,
+        showLive,
+        showBacktesting,
         status
     };
 })();
@@ -203,7 +278,7 @@ ASTRA.commands.push({
     trigger: "scan my trading history",
     action() {
         TraderProfileModule.scan();
-        AstraReply("Trader profile scanned and updated.");
+        AstraReply("Trader profile scanned. Live trading and backtesting remain separated.");
     }
 });
 
@@ -211,22 +286,34 @@ ASTRA.commands.push({
     trigger: "scan my trading profile",
     action() {
         TraderProfileModule.scan();
-        AstraReply("Trader profile scanned and updated.");
+        AstraReply("Trader profile scanned. Live trading and backtesting remain separated.");
     }
 });
 
 ASTRA.commands.push({
     trigger: "show trader profile",
     action() {
-        TraderProfileModule.scan();
         TraderProfileModule.show();
+    }
+});
+
+ASTRA.commands.push({
+    trigger: "show live trading progress",
+    action() {
+        TraderProfileModule.showLive();
+    }
+});
+
+ASTRA.commands.push({
+    trigger: "show backtesting progress",
+    action() {
+        TraderProfileModule.showBacktesting();
     }
 });
 
 ASTRA.commands.push({
     trigger: "how am I doing",
     action() {
-        TraderProfileModule.scan();
         TraderProfileModule.show();
     }
 });
