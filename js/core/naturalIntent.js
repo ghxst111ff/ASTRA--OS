@@ -1,59 +1,96 @@
 /* =========================================
-   ASTRA NATURAL INTENT ENGINE v1.2
+   ASTRA NATURAL INTENT ENGINE v2.0
    Universal conversational routing
 ========================================= */
-const NaturalIntent={
- normalize(message){return String(message||"").toLowerCase().replace(/[’']/g,"").replace(/[^a-z0-9\s?]/g," ").replace(/\s+/g," ").trim();},
- has(text,words){return words.some(word=>text.includes(word));},
- resolve(message){
-  const text=this.normalize(message);if(!text)return{intent:"empty",confidence:1};
-  if(this.has(text,["watch my chart","watch the chart","watch my screen","keep an eye on my chart","keep watching my chart","watch while i trade","watch while im trading"]))return{intent:"observer_start",confidence:.99};
-  if(this.has(text,["stop watching","stop watching my chart","stop watching the chart"]))return{intent:"observer_stop",confidence:.99};
-  if(this.has(text,["what are you seeing","what do you see","see anything","notice anything","did i miss anything","am i missing anything","anything i missed"]))return{intent:"observer_observe",confidence:.96};
-  const live=this.has(text,["live trading","live trade","real trading","real trades"]),backtest=this.has(text,["backtesting","backtest","paper testing","historical testing"]);
-  if(live&&this.has(text,["progress","doing","performance","results","how am i","how are my","status"]))return{intent:"live_trading_progress",confidence:.98};
-  if(backtest&&this.has(text,["progress","doing","performance","results","how am i","how are my","status"]))return{intent:"backtesting_progress",confidence:.98};
-  if(this.has(text,["trader profile","trading profile","trading journey","how am i doing as a trader"]))return{intent:"trader_profile",confidence:.95};
-  if(this.has(text,["journal","my trades","trade history"])&&this.has(text,["show","what","look","review","check","how","progress","history"]))return{intent:"journal_review",confidence:.94};
-  if(this.has(text,["screen","chart","what am i looking at","look at my screen"])&&this.has(text,["see","look","show","analyze","analyse","view","watch","what"]))return{intent:"screen_analysis",confidence:.94};
-  if(this.has(text,["screen","screen sharing","screen view"])&&this.has(text,["open","start","turn on","view","share"]))return{intent:"screen_open",confidence:.96};
-  if(this.has(text,["screen","screen sharing","screen view"])&&this.has(text,["close","stop","turn off"]))return{intent:"screen_close",confidence:.96};
-  if(this.has(text,["voice","microphone","listening"])&&this.has(text,["start","listen","turn on","activate"]))return{intent:"voice_start",confidence:.96};
-  if(this.has(text,["voice","microphone","listening"])&&this.has(text,["stop","turn off","mute"]))return{intent:"voice_stop",confidence:.96};
-  if(this.has(text,["memory","remember","forget","what do you know about me"]))return{intent:"memory",confidence:.92};
-  if(this.has(text,["performance","win rate","equity","stats","statistics"]))return{intent:"performance",confidence:.92};
-  if(this.has(text,["risk","risk management","position size","drawdown"]))return{intent:"risk",confidence:.90};
-  if(this.has(text,["psychology","mindset","discipline","emotion","emotional"]))return{intent:"psychology",confidence:.90};
-  if(this.has(text,["strategy","trading system","my system","how do i trade","how i trade"]))return{intent:"strategy",confidence:.94};
-  if(this.has(text,["api","connection","connected","gateway"])&&this.has(text,["status","working","configured","connection","connected"]))return{intent:"api_status",confidence:.95};
-  if(this.has(text,["module","modules"])&&this.has(text,["working","online","status","available"]))return{intent:"module_status",confidence:.90};
-  return{intent:"conversation",confidence:.50};
- },
- handle(message){
-  const result=this.resolve(message),m=ASTRA.modules;
-  switch(result.intent){
-   case"observer_start":m.proactiveMarketObserver?.start?.();return true;
-   case"observer_stop":m.proactiveMarketObserver?.stop?.();return true;
-   case"observer_observe":m.proactiveMarketObserver?.observe?.();return true;
-   case"live_trading_progress":m.traderProfile?.showLive?.();return true;
-   case"backtesting_progress":m.traderProfile?.showBacktesting?.();return true;
-   case"trader_profile":m.traderProfile?.show?.();return true;
-   case"journal_review":m.journal?.show?.();return true;
-   case"screen_analysis":m.screen?.analyze?.();return true;
-   case"screen_open":m.screen?.open?.();return true;
-   case"screen_close":m.screen?.close?.();return true;
-   case"voice_start":m.voice?.start?.();return true;
-   case"voice_stop":m.voice?.stop?.();return true;
-   case"performance":m.performance?.show?.();return true;
-   case"risk":m.risk?.show?.();return true;
-   case"psychology":m.psychology?.show?.();return true;
-   case"strategy":m.trading?.show?.();return true;
-   case"api_status":AstraReply(JSON.stringify(m.api?.status?.()||{configured:false},null,2));return true;
-   case"module_status":AstraReply(JSON.stringify(ASTRA.modules.moduleManager?.status?.()||ASTRA.modules.moduleManager?.list?.()||[],null,2));return true;
-   case"memory":if(m.memory?.show){m.memory.show();return true;}break;
-  }
-  return false;
- }
-};
-ASTRA.registerModule("naturalIntent",NaturalIntent);
-console.log("ASTRA Natural Intent Engine v1.2 Loaded");
+
+const NaturalIntent = (() => {
+    const intents = [
+        { name:"observer_start", words:["watch my chart","watch the chart","watch my screen","keep an eye on my chart","watch while i trade","watch while im trading","watch this with me","monitor my chart"] },
+        { name:"observer_stop", words:["stop watching","stop watching my chart","stop watching the chart","you can stop watching","stop monitoring"] },
+        { name:"observer_observe", words:["what are you seeing","what do you see","see anything","notice anything","did i miss anything","am i missing anything","anything i missed","what did you notice","do you notice anything"] },
+        { name:"live_trading_progress", words:["live trading progress","live trading performance","how am i doing live","how are my live trades","how is my live trading going","how have i been trading live","how am i doing in live trading"] },
+        { name:"backtesting_progress", words:["backtesting progress","backtest progress","backtesting performance","how is my backtesting going","how am i doing in backtesting","how is the backtest going","how are my backtests"] },
+        { name:"trader_profile", words:["trader profile","trading profile","trading journey","how am i doing as a trader","what do you know about how i trade","what patterns do you see in my trading"] },
+        { name:"journal_review", words:["review my journal","look at my journal","what is in my journal","what have i been doing in my trades","what have i been doing wrong in my trades","look at my trade history","what have i traded"] },
+        { name:"screen_analysis", words:["look at my chart","analyze my chart","analyse my chart","look at my screen","what am i looking at","what is happening on my chart","analyze what im looking at","look at this chart"] },
+        { name:"screen_open", words:["open screen view","open my screen","start screen sharing","share my screen","turn on screen view","let me show you my screen"] },
+        { name:"screen_close", words:["close screen view","stop screen sharing","stop sharing my screen","turn off screen view"] },
+        { name:"voice_start", words:["start listening","start voice","turn on voice","listen to me","activate voice","start listening to me"] },
+        { name:"voice_stop", words:["stop listening","stop voice","turn off voice","mute yourself"] },
+        { name:"memory", words:["what do you remember","what do you know about me","remember this","save this","forget this","do you remember"] },
+        { name:"performance", words:["how is my performance","how am i performing","show my performance","what is my win rate","how is my equity","what are my stats","my statistics"] },
+        { name:"risk", words:["how is my risk","am i taking too much risk","what is my risk","check my risk","risk management","position size","drawdown"] },
+        { name:"psychology", words:["how is my psychology","am i getting emotional","am i emotional","how is my mindset","am i being disciplined","my discipline","trading psychology"] },
+        { name:"strategy", words:["what does my strategy say","does this fit my system","does this fit my trading system","what is my trading system","what are my trading rules","how do i trade","how am i supposed to trade"] },
+        { name:"api_status", words:["is the api working","is the api connected","is everything connected","is the gateway working","check the api","check my connection"] },
+        { name:"module_status", words:["are your modules working","what modules are online","is everything working","system status","how is astra doing","are you working properly"] }
+    ];
+
+    function normalize(message) {
+        return String(message || "")
+            .toLowerCase()
+            .replace(/[’']/g, "")
+            .replace(/[^a-z0-9\s?]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+    }
+
+    function score(text, phrase) {
+        if (text.includes(phrase)) return phrase.length > 12 ? 1 : .8;
+        const words = phrase.split(" ").filter(Boolean);
+        const hits = words.filter(w => text.includes(w)).length;
+        return hits / Math.max(words.length, 1) * .65;
+    }
+
+    function resolve(message) {
+        const text = normalize(message);
+        if (!text) return { intent:"empty", confidence:1 };
+
+        let best = { intent:"conversation", confidence:0 };
+        for (const candidate of intents) {
+            const confidence = Math.max(...candidate.words.map(p => score(text, p)));
+            if (confidence > best.confidence) {
+                best = { intent:candidate.name, confidence };
+            }
+        }
+
+        // Keep ordinary conversation available when no deterministic intent is strong enough.
+        if (best.confidence < .62) return { intent:"conversation", confidence:.50 };
+        return best;
+    }
+
+    function handle(message) {
+        const result = resolve(message);
+        const m = ASTRA.modules;
+
+        switch (result.intent) {
+            case "observer_start": m.proactiveMarketObserver?.start?.(); return true;
+            case "observer_stop": m.proactiveMarketObserver?.stop?.(); return true;
+            case "observer_observe": m.proactiveMarketObserver?.observe?.(); return true;
+            case "live_trading_progress": m.traderProfile?.showLive?.(); return true;
+            case "backtesting_progress": m.traderProfile?.showBacktesting?.(); return true;
+            case "trader_profile": m.traderProfile?.show?.(); return true;
+            case "journal_review": m.journal?.show?.(); return true;
+            case "screen_analysis": m.screen?.showAnalysis?.(); return true;
+            case "screen_open": m.screen?.startCapture?.(); return true;
+            case "screen_close": m.screen?.close?.(); return true;
+            case "voice_start": m.voice?.start?.(); return true;
+            case "voice_stop": m.voice?.stop?.(); return true;
+            case "performance": m.performance?.show?.(); return true;
+            case "risk": m.risk?.show?.(); return true;
+            case "psychology": m.psychology?.show?.(); return true;
+            case "strategy": m.trading?.show?.(); return true;
+            case "api_status": AstraReply(JSON.stringify(m.api?.status?.() || {configured:false}, null, 2)); return true;
+            case "module_status": AstraReply(JSON.stringify(ASTRA.modules.moduleManager?.list?.() || [], null, 2)); return true;
+            case "memory":
+                if (m.memory?.show) { m.memory.show(); return true; }
+                break;
+        }
+        return false;
+    }
+
+    return { name:"Natural Intent Engine", version:"2.0", normalize, resolve, handle };
+})();
+
+ASTRA.registerModule("naturalIntent", NaturalIntent);
+console.log("ASTRA Natural Intent Engine v2.0 Loaded");
