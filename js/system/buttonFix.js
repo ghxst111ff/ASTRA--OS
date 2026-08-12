@@ -28,6 +28,27 @@ window.addEventListener("DOMContentLoaded",()=>{
     if(input) input.placeholder="Type a message to ASTRA...";
   }
 
+  // Add a real microphone button beside SEND if it is not already present.
+  const commandArea=$(".core-command-area")||$(".command-area");
+  if(commandArea && !$(".chat-mic",commandArea)){
+    const mic=document.createElement("button");
+    mic.type="button";
+    mic.className="chat-mic";
+    mic.title="Talk to ASTRA";
+    mic.setAttribute("aria-label","Talk to ASTRA");
+    mic.textContent="🎙";
+    const send=$("#sendBtn",commandArea);
+    if(send) commandArea.insertBefore(mic,send);
+    else commandArea.appendChild(mic);
+    mic.addEventListener("click",()=>{
+      const voice=ASTRA?.modules?.voice;
+      if(!voice)return;
+      const state=voice.status?.();
+      if(state?.listening){ voice.stop?.(); mic.classList.remove("active"); }
+      else { voice.start?.(); mic.classList.add("active"); }
+    });
+  }
+
   // Styling for the compact conversation inside ASTRA SAYS.
   if(!$("#astraConversationStyle")){
     const style=document.createElement("style");
@@ -45,12 +66,42 @@ window.addEventListener("DOMContentLoaded",()=>{
       .core-command-area{display:flex!important;gap:6px;margin-top:7px;align-items:center}
       .core-command-area #commandInput{flex:1;min-width:0;height:28px;border:1px solid rgba(0,194,255,.28);background:rgba(1,12,21,.9);color:#e6faff;border-radius:6px;padding:0 9px;font-size:8px;outline:none}
       .core-command-area #commandInput:focus{border-color:rgba(0,207,255,.7);box-shadow:0 0 12px rgba(0,190,255,.12)}
-      .core-command-area #sendBtn{height:28px;padding:0 10px;border:1px solid rgba(0,194,255,.35);background:#05243a;color:#78e2ff;border-radius:6px;font-size:7px;font-weight:700;cursor:pointer}
-      .core-command-area #sendBtn:hover{background:#07324e;box-shadow:0 0 12px rgba(0,190,255,.18)}
+      .core-command-area #sendBtn,.core-command-area .chat-mic{height:28px;border:1px solid rgba(0,194,255,.35);background:#05243a;color:#78e2ff;border-radius:6px;font-size:7px;font-weight:700;cursor:pointer}
+      .core-command-area #sendBtn{padding:0 10px}.core-command-area .chat-mic{width:30px;padding:0;font-size:12px}
+      .core-command-area #sendBtn:hover,.core-command-area .chat-mic:hover,.core-command-area .chat-mic.active{background:#07324e;box-shadow:0 0 12px rgba(0,190,255,.18)}
       .conversation-panel .hidden-control{display:none!important}
       .conversation-panel .command-area{width:100%}
     `;
     document.head.appendChild(style);
+  }
+
+  // Reliable chat sender. This is intentionally bound here, after the visual UI is moved,
+  // so the button remains functional even if an older UI controller fails to initialize.
+  const input=$("#commandInput"), sendBtn=$("#sendBtn");
+  if(input && sendBtn && !sendBtn.dataset.chatBound){
+    sendBtn.dataset.chatBound="true";
+    const send=()=>{
+      const text=input.value.trim();
+      if(!text)return;
+      ASTRA.modules.response?.user?.(text);
+      input.value="";
+      input.focus();
+      if(ASTRA.modules.command?.process){
+        try { ASTRA.modules.command.process(text); }
+        catch(error){
+          console.error("ASTRA command error",error);
+          AstraReply("I hit an error processing that message: "+error.message);
+        }
+      }else if(ASTRA.modules.ai?.ask){
+        ASTRA.modules.ai.ask(text);
+      }else if(ASTRA.modules.aiGateway?.ask){
+        ASTRA.modules.aiGateway.ask(text);
+      }else{
+        AstraReply("ASTRA's conversation engine is still loading. Please try again in a moment.");
+      }
+    };
+    sendBtn.addEventListener("click",send);
+    input.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}});
   }
 
   document.addEventListener("click",e=>{
@@ -65,5 +116,5 @@ window.addEventListener("DOMContentLoaded",()=>{
     }
     if(b.classList.contains("toggle")) b.classList.toggle("on");
   });
-  console.log("ASTRA BUTTON FIX — controls + core conversation active");
+  console.log("ASTRA BUTTON FIX — controls + core conversation + send active");
 });
