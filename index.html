@@ -9,65 +9,10 @@
 <body>
 <div class="astra-container">
 <div class="holo-core" id="astraCore"><div class="core-circle"><span>ASTRA</span></div><div class="version">ASTRA v1.0</div><div id="status">SYSTEM ONLINE</div></div>
-<div class="modules">
-<button class="module-btn" data-module="journal">JOURNAL</button>
-<button class="module-btn" data-module="trading">TRADING</button>
-<button class="module-btn" data-module="memory">MEMORY</button>
-<button class="module-btn" data-module="screen">SCREEN</button>
-<button class="module-btn" data-module="performance">PERFORMANCE</button>
-</div>
-<div class="module-container">
-<div class="module-panel hidden" id="journal"><h2>📓 JOURNAL</h2><p id="latestTrade">No trades yet</p><input type="file" id="tradeScreenshot" accept="image/*"><button id="saveScreenshot">SAVE SCREENSHOT</button></div>
-<div class="module-panel hidden" id="trading"><h2>📈 TRADING</h2><p id="tradeCount">Trades: 0</p><p id="winRate">Win Rate: 0%</p></div>
-<div class="module-panel hidden" id="memory"><h2>💾 MEMORY</h2><p id="memoryCount">Memories: 0</p></div>
-<div class="module-panel hidden" id="screen"><h2>🖥 SCREEN VIEW</h2><div id="screenOutput">Waiting for screen input...</div></div>
-<div class="module-panel hidden" id="performance"><h2>📊 PERFORMANCE</h2><canvas id="equityChart"></canvas></div>
-</div>
+<div class="modules"><button class="module-btn" data-module="journal">JOURNAL</button><button class="module-btn" data-module="trading">TRADING</button><button class="module-btn" data-module="memory">MEMORY</button><button class="module-btn" data-module="screen">SCREEN</button><button class="module-btn" data-module="performance">PERFORMANCE</button></div>
+<div class="module-container"><div class="module-panel hidden" id="journal"><h2>📓 JOURNAL</h2><p id="latestTrade">No trades yet</p><input type="file" id="tradeScreenshot" accept="image/*"><button id="saveScreenshot">SAVE SCREENSHOT</button></div><div class="module-panel hidden" id="trading"><h2>📈 TRADING</h2><p id="tradeCount">Trades: 0</p><p id="winRate">Win Rate: 0%</p></div><div class="module-panel hidden" id="memory"><h2>💾 MEMORY</h2><p id="memoryCount">Memories: 0</p></div><div class="module-panel hidden" id="screen"><h2>🖥 SCREEN VIEW</h2><div id="screenOutput">Waiting for screen input...</div></div><div class="module-panel hidden" id="performance"><h2>📊 PERFORMANCE</h2><canvas id="equityChart"></canvas></div></div>
 <div id="output" class="astra-feed"><div class="astra-message">ASTRA online. Awaiting command.</div></div>
 <div class="command-area"><input id="commandInput" type="text" placeholder="Speak to ASTRA..."><button id="sendBtn">SEND</button><button id="viewScreenBtn">VIEW SCREEN</button><button id="voiceBtn">🎤</button></div>
 </div>
-<script src="js/core/astra.js"></script>
-<script src="js/core/modeManager.js"></script>
-<script src="js/core/moduleManager.js"></script>
-<script src="js/core/dependencyManager.js"></script>
-<script src="js/core/activator.js"></script>
-<script src="js/core/response.js"></script>
-<script src="js/core/intentDetector.js"></script>
-<script src="js/core/moduleTypeDetector.js"></script>
-<script src="js/core/naturalIntent.js?v=1"></script>
-<script src="js/core/commandRouter.js?v=3"></script>
-<script src="js/core/contextEngine.js"></script>
-<script src="js/core/learningEngine.js"></script>
-<script src="js/core/apiConnection.js?v=2"></script>
-<script src="js/core/aiGateway.js?v=2"></script>
-<script src="js/modules/memory.js"></script>
-<script src="js/modules/journal.js"></script>
-<script src="js/modules/performance.js"></script>
-<script src="js/modules/trading.js"></script>
-<script src="js/modules/marketData.js"></script>
-<script src="js/modules/backtesting.js"></script>
-<script src="js/modules/screen.js"></script>
-<script src="js/modules/voice.js"></script>
-<script src="js/modules/traderProfile.js?v=2"></script>
-<script src="js/modules/proactiveMarketObserver.js?v=1"></script>
-<script src="js/system/updates.js"></script>
-<script src="js/system/verification.js"></script>
-<script src="js/system/installer.js"></script>
-<script src="js/system/systemVerifier.js"></script>
-<script src="js/system/buildExecutor.js"></script>
-<script src="js/system/moduleFactory.js"></script>
-<script src="js/system/connectionManager.js"></script>
-<script src="js/system/modeController.js"></script>
-<script src="js/system/modeBindingManager.js"></script>
-<script src="js/system/modeSwitcher.js"></script>
-<script src="js/system/buildPlanner.js"></script>
-<script src="js/system/buildMemory.js"></script>
-<script src="js/system/moduleBlueprints.js"></script>
-<script src="js/system/codeGenerator.js"></script>
-<script src="js/system/backup.js"></script>
-<script src="js/system/updateAnalyzer.js"></script>
-<script src="js/modules/risk.js"></script>
-<script src="js/modules/psychology.js"></script>
-<script src="script.js"></script>
-</body>
-</html>
+<script src="js/core/astra.js"></script><script src="js/core/modeManager.js"></script><script src="js/core/moduleManager.js"></script><script src="js/core/dependencyManager.js"></script><script src="js/core/activator.js"></script><script src="js/core/response.js"></script><script src="js/core/intentDetector.js"></script><script src="js/core/moduleTypeDetector.js"></script><script src="js/core/naturalIntent.js?v=2"></script><script src="js/core/commandRouter.js?v=3"></script><script src="js/core/contextEngine.js"></script><script src="js/core/learningEngine.js"></script><script src="js/core/apiConnection.js?v=2"></script><script src="js/core/aiGateway.js?v=3"></script><script src="js/modules/memory.js"></script><script src="js/modules/journal.js"></script><script src="js/modules/performance.js"></script><script src="js/modules/trading.js"></script><script src="js/modules/marketData.js"></script><script src="js/modules/backtesting.js"></script><script src="js/modules/screen.js?v=2"></script><script src="js/modules/voice.js"></script><script src="js/modules/traderProfile.js?v=2"></script><script src="js/modules/proactiveMarketObserver.js?v=2"></script><script src="js/system/updates.js"></script><script src="js/system/verification.js"></script><script src="js/system/installer.js"></script><script src="js/system/systemVerifier.js"></script><script src="js/system/buildExecutor.js"></script><script src="js/system/moduleFactory.js"></script><script src="js/system/connectionManager.js"></script><script src="js/system/modeController.js"></script><script src="js/system/modeBindingManager.js"></script><script src="js/system/modeSwitcher.js"></script><script src="js/system/buildPlanner.js"></script><script src="js/system/buildMemory.js"></script><script src="js/system/moduleBlueprints.js"></script><script src="js/system/codeGenerator.js"></script><script src="js/system/backup.js"></script><script src="js/system/updateAnalyzer.js"></script><script src="js/modules/risk.js"></script><script src="js/modules/psychology.js"></script><script src="script.js"></script>
+</body></html>
