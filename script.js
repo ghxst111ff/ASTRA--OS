@@ -1,160 +1,28 @@
 /* =========================================
-   ASTRA UI COMMAND BRIDGE v5.0
+   ASTRA UI COMMAND BRIDGE v5.1
    Linked dashboard modules + working buttons
 ========================================= */
 window.addEventListener("DOMContentLoaded",()=>{
-    const sendBtn=document.getElementById("sendBtn");
-    const input=document.getElementById("commandInput");
-    const voiceBtn=document.getElementById("voiceBtn");
-    const viewScreenBtn=document.getElementById("viewScreenBtn");
-    const watchBtn=document.getElementById("watchBtn");
-
-    const showView=(name)=>{
-        document.querySelectorAll(".view").forEach(v=>v.classList.remove("active-view"));
-        const target=document.getElementById(`view-${name}`);
-        if(target)target.classList.add("active-view");
-        document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.module===name));
-        window.scrollTo({top:0,behavior:"smooth"});
-        if(name==="performance")renderPerformance();
-        if(name==="journal")renderJournalTabs();
-    };
+    const sendBtn=document.getElementById("sendBtn"),input=document.getElementById("commandInput"),voiceBtn=document.getElementById("voiceBtn"),viewScreenBtn=document.getElementById("viewScreenBtn"),watchBtn=document.getElementById("watchBtn");
+    const showView=(name)=>{document.querySelectorAll(".view").forEach(v=>v.classList.remove("active-view"));const target=document.getElementById(`view-${name}`);if(target)target.classList.add("active-view");document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.module===name));window.scrollTo({top:0,behavior:"smooth"});if(name==="performance")renderPerformance();if(name==="journal")renderJournalTabs();};
     window.ASTRAShowView=showView;
-
-    const ensurePerformance=()=>{
-        if(document.getElementById("view-performance"))return;
-        const main=document.querySelector(".main-area");
-        if(!main)return;
-        const section=document.createElement("section");
-        section.id="view-performance";
-        section.className="view";
-        section.innerHTML=`<div class="view-header"><h1>PERFORMANCE</h1><span class="pill">LIVE JOURNAL DATA</span></div><div class="module-tabs"><button class="module-tab active">Overview</button><button class="module-tab">Trades</button><button class="module-tab">Equity</button></div><div class="stats-grid" id="performanceStats"></div><div class="content-card performance-detail-card"><h3>EQUITY / PERFORMANCE</h3><div class="performance-graph" id="performanceGraph"><div class="graph-line"></div></div><div id="performanceTradeList"></div></div>`;
-        main.insertBefore(section,main.querySelector(".conversation-dock")||null);
-    };
-
-    const ensurePerformanceNav=()=>{
-        const nav=document.querySelector(".nav-list");
-        if(!nav||nav.querySelector('[data-module="performance"]'))return;
-        const btn=document.createElement("button");
-        btn.className="nav-item";
-        btn.dataset.module="performance";
-        btn.innerHTML="<span>◒</span> PERFORMANCE";
-        nav.insertBefore(btn,nav.querySelector('[data-module="settings"]')||null);
-    };
-
-    const linkCard=(selector,route)=>{
-        const el=document.querySelector(selector);
-        if(!el||el.dataset.routeLinked)return;
-        el.dataset.routeLinked="true";
-        el.dataset.route=route;
-        el.classList.add("linked-module");
-        el.setAttribute("role","button");
-        el.setAttribute("tabindex","0");
-        el.addEventListener("click",e=>{if(!e.target.closest("button"))showView(route);});
-        el.addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&!e.target.closest("button")){e.preventDefault();showView(route);}});
-    };
-
-    const addDashboardLinks=()=>{
-        linkCard(".plan-panel","dashboard");
-        linkCard(".performance-panel","performance");
-        linkCard(".account-panel","trading");
-        linkCard(".risk-panel","trading");
-    };
-
-    const addTabs=(viewName,names)=>{
-        const view=document.getElementById(`view-${viewName}`);
-        if(!view||view.querySelector(".module-tabs"))return;
-        const header=view.querySelector(".view-header");
-        if(!header)return;
-        const tabs=document.createElement("div");
-        tabs.className="module-tabs";
-        names.forEach((name,i)=>{
-            const b=document.createElement("button");
-            b.className=`module-tab ${i===0?"active":""}`;
-            b.dataset.tab=name.toLowerCase().replace(/\s+/g,"-");
-            b.textContent=name;
-            tabs.appendChild(b);
-        });
-        header.after(tabs);
-        tabs.addEventListener("click",e=>{
-            const b=e.target.closest(".module-tab");
-            if(!b)return;
-            tabs.querySelectorAll(".module-tab").forEach(x=>x.classList.remove("active"));
-            b.classList.add("active");
-            const key=b.dataset.tab;
-            view.querySelectorAll("[data-module-tab]").forEach(x=>x.hidden=x.dataset.moduleTab!==key);
-        });
-    };
-
-    const addAllTabs=()=>{
-        addTabs("journal",["Trades","Mistakes","Wins","Notes"]);
-        addTabs("trading",["Watchlist","Analysis","Sessions"]);
-        addTabs("backtest",["Overview","Trades","Performance"]);
-        addTabs("mindset",["Focus","Discipline","Growth"]);
-        addTabs("settings",["Preferences","Account & Data","System"]);
-    };
-
-    const renderJournalTabs=()=>{
-        const view=document.getElementById("view-journal");
-        const card=view?.querySelector(".content-card");
-        if(!card||card.querySelector("[data-module-tab]"))return;
-        const base=card.innerHTML;
-        const data=ASTRA.modules.journal?.getData?.()||{trades:[]};
-        const wins=(data.trades||[]).filter(t=>t.result==="win");
-        card.innerHTML=`<div data-module-tab="trades">${base}</div><div data-module-tab="mistakes" hidden><h3>MISTAKES</h3><p class="empty-state">Mistakes from your journal will appear here.</p></div><div data-module-tab="wins" hidden><h3>WINS</h3>${wins.map(t=>`<div class="trade-line"><b>${t.pair||"Trade"}</b><span>${t.direction||""}</span><strong>WIN</strong><small>${t.notes||"Recorded win"}</small></div>`).join("")||'<p class="empty-state">No wins recorded yet.</p>'}</div><div data-module-tab="notes" hidden><h3>NOTES</h3><p class="empty-state">Journal notes will appear here.</p></div>`;
-    };
-
-    const renderPerformance=()=>{
-        const data=ASTRA.modules.performance?.getData?.()||{trades:[],wins:0,losses:0};
-        const total=(data.trades||[]).length;
-        const rate=total?Math.round((data.wins/total)*100):0;
-        const stats=document.getElementById("performanceStats");
-        if(stats)stats.innerHTML=`<div><small>Total Trades</small><b>${total}</b></div><div><small>Wins</small><b class="positive">${data.wins||0}</b></div><div><small>Losses</small><b>${data.losses||0}</b></div><div><small>Win Rate</small><b>${rate}%</b></div><div><small>Source</small><b>Journal</b></div><div><small>Status</small><b class="positive">LIVE</b></div>`;
-        const list=document.getElementById("performanceTradeList");
-        if(list)list.innerHTML=(data.trades||[]).slice(-12).reverse().map((r,i)=>`<div class="trade-line"><b>Trade ${total-i}</b><span>Journal</span><strong class="${r==="win"?"positive":""}">${r}</strong><small>Performance feed</small></div>`).join("")||'<p class="empty-state">Your performance module is connected. Add a journal trade to populate it.</p>';
-    };
-
-    const send=()=>{
-        const command=input?.value.trim();
-        if(!command)return;
-        ASTRA.modules.response?.user?.(command);
-        if(ASTRA.modules.command?.process)ASTRA.modules.command.process(command);
-        else if(ASTRA.modules.naturalIntent?.handle?.(command)){}
-        else if(ASTRA.modules.aiGateway?.ask)ASTRA.modules.aiGateway.ask(command);
-        if(input)input.value="";
-    };
-
-    ensurePerformance();
-    ensurePerformanceNav();
-    addDashboardLinks();
-    addAllTabs();
-
-    sendBtn?.addEventListener("click",send);
-    input?.addEventListener("keydown",e=>{if(e.key==="Enter")send();});
+    const ensurePerformance=()=>{if(document.getElementById("view-performance"))return;const main=document.querySelector(".main-area");if(!main)return;const section=document.createElement("section");section.id="view-performance";section.className="view";section.innerHTML=`<div class="view-header"><h1>PERFORMANCE</h1><span class="pill">LIVE JOURNAL DATA</span></div><div class="inner-tabs"><button class="tab active">OVERVIEW</button><button class="tab">TRADES</button><button class="tab">EQUITY</button></div><div class="stats-grid" id="performanceStats"></div><div class="content-card"><h3>EQUITY / PERFORMANCE</h3><div class="large-chart"></div><div id="performanceTradeList"></div></div>`;main.insertBefore(section,main.querySelector(".conversation-dock")||null);};
+    const ensurePerformanceNav=()=>{const nav=document.querySelector(".nav-list");if(!nav||nav.querySelector('[data-module="performance"]'))return;const btn=document.createElement("button");btn.className="nav-item";btn.dataset.module="performance";btn.innerHTML="<span>◒</span> PERFORMANCE";nav.insertBefore(btn,nav.querySelector('[data-module="settings"]')||null);};
+    const linkCard=(selector,route)=>{const el=document.querySelector(selector);if(!el||el.dataset.routeLinked)return;el.dataset.routeLinked="true";el.dataset.route=route;el.style.cursor="pointer";el.addEventListener("click",e=>{if(!e.target.closest("button"))showView(route);});};
+    const addDashboardLinks=()=>{linkCard(".plan-panel","dashboard");linkCard(".performance-panel","performance");linkCard(".account-panel","trading");linkCard(".risk-panel","trading");};
+    const addTabs=(viewName,names)=>{const view=document.getElementById(`view-${viewName}`);if(!view||view.querySelector(".linked-tabs"))return;const header=view.querySelector(".view-header");if(!header)return;const tabs=document.createElement("div");tabs.className="inner-tabs linked-tabs";names.forEach((name,i)=>{const b=document.createElement("button");b.className=`tab ${i===0?"active":""}`;b.dataset.tab=name.toLowerCase().replace(/\s+/g,"-");b.textContent=name;tabs.appendChild(b);});header.after(tabs);tabs.addEventListener("click",e=>{const b=e.target.closest(".tab");if(!b)return;tabs.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");const key=b.dataset.tab;view.querySelectorAll("[data-module-tab]").forEach(x=>x.hidden=x.dataset.moduleTab!==key);});};
+    const addAllTabs=()=>{addTabs("journal",["Trades","Mistakes","Wins","Notes"]);addTabs("trading",["Watchlist","Analysis","Sessions"]);addTabs("backtest",["Overview","Trades","Performance"]);addTabs("mindset",["Focus","Discipline","Growth"]);addTabs("settings",["Preferences","Account & Data","System"]);};
+    const renderJournalTabs=()=>{const view=document.getElementById("view-journal"),card=view?.querySelector(".content-card");if(!card||card.querySelector("[data-module-tab]"))return;const base=card.innerHTML,data=ASTRA.modules.journal?.getData?.()||{trades:[]},wins=(data.trades||[]).filter(t=>t.result==="win");card.innerHTML=`<div data-module-tab="trades">${base}</div><div data-module-tab="mistakes" hidden><h3>MISTAKES</h3><p class="empty-state">Mistakes from your journal will appear here.</p></div><div data-module-tab="wins" hidden><h3>WINS</h3>${wins.map(t=>`<div class="trade-line"><b>${t.pair||"Trade"}</b><span>${t.direction||""}</span><strong>WIN</strong><small>${t.notes||"Recorded win"}</small></div>`).join("")||'<p class="empty-state">No wins recorded yet.</p>'}</div><div data-module-tab="notes" hidden><h3>NOTES</h3><p class="empty-state">Journal notes will appear here.</p></div>`;};
+    const renderPerformance=()=>{const data=ASTRA.modules.performance?.getData?.()||{trades:[],wins:0,losses:0},total=(data.trades||[]).length,rate=total?Math.round((data.wins/total)*100):0,stats=document.getElementById("performanceStats");if(stats)stats.innerHTML=`<div><small>Total Trades</small><b>${total}</b></div><div><small>Wins</small><b class="positive">${data.wins||0}</b></div><div><small>Losses</small><b>${data.losses||0}</b></div><div><small>Win Rate</small><b>${rate}%</b></div><div><small>Source</small><b>Journal</b></div><div><small>Status</small><b class="positive">LIVE</b></div>`;const list=document.getElementById("performanceTradeList");if(list)list.innerHTML=(data.trades||[]).slice(-12).reverse().map((r,i)=>`<div class="trade-line"><b>Trade ${total-i}</b><span>Journal</span><strong class="${r==="win"?"positive":""}">${r}</strong><small>Performance feed</small></div>`).join("")||'<p class="empty-state">Your performance module is connected. Add a journal trade to populate it.</p>';};
+    const send=()=>{const command=input?.value.trim();if(!command)return;ASTRA.modules.response?.user?.(command);if(ASTRA.modules.command?.process)ASTRA.modules.command.process(command);else if(ASTRA.modules.naturalIntent?.handle?.(command)){}else if(ASTRA.modules.aiGateway?.ask)ASTRA.modules.aiGateway.ask(command);if(input)input.value="";};
+    ensurePerformance();ensurePerformanceNav();addDashboardLinks();addAllTabs();
+    sendBtn?.addEventListener("click",send);input?.addEventListener("keydown",e=>{if(e.key==="Enter")send();});
     voiceBtn?.addEventListener("click",()=>{const active=ASTRA.modules.voice?.toggle?.();voiceBtn.classList.toggle("active",!!active);});
     viewScreenBtn?.addEventListener("click",()=>ASTRA.modules.screen?.startCapture?.());
-    watchBtn?.addEventListener("click",()=>{
-        const observer=ASTRA.modules.proactiveMarketObserver;
-        if(!observer)return;
-        const state=observer.status?.();
-        if(state?.watching){observer.stop?.();watchBtn.classList.remove("active");}
-        else{observer.start?.();watchBtn.classList.add("active");}
-    });
-
-    document.addEventListener("click",e=>{
-        const nav=e.target.closest(".nav-item");
-        if(nav?.dataset.module){showView(nav.dataset.module);return;}
-        const route=e.target.closest("[data-route]");
-        if(route&&!e.target.closest("button")){showView(route.dataset.route);return;}
-        const quick=e.target.closest("#newTradeBtn,#journalBtn,#analyzeBtn");
-        if(quick?.id==="newTradeBtn"||quick?.id==="journalBtn")showView("journal");
-        if(quick?.id==="analyzeBtn")ASTRA.modules.screen?.analyze?.();
-    });
-
+    watchBtn?.addEventListener("click",()=>{const observer=ASTRA.modules.proactiveMarketObserver;if(!observer)return;const state=observer.status?.();if(state?.watching){observer.stop?.();watchBtn.classList.remove("active");}else{observer.start?.();watchBtn.classList.add("active");}});
+    document.addEventListener("click",e=>{const nav=e.target.closest(".nav-item");if(nav?.dataset.module){showView(nav.dataset.module);return;}const route=e.target.closest("[data-route]");if(route&&!e.target.closest("button")){showView(route.dataset.route);return;}if(e.target.closest("#newTradeBtn,#journalBtn"))showView("journal");if(e.target.closest("#analyzeBtn"))ASTRA.modules.screen?.analyze?.();});
     document.querySelectorAll(".inner-tabs").forEach(group=>group.querySelectorAll(".tab").forEach(tab=>tab.addEventListener("click",()=>{group.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));tab.classList.add("active");})));
     document.querySelectorAll(".range-tabs span,.range-tabs b").forEach(tab=>tab.addEventListener("click",()=>{const group=tab.parentElement;group.querySelectorAll("span,b").forEach(t=>t.classList.remove("active"));tab.classList.add("active");}));
-
-    const tick=()=>{const el=document.getElementById("lastUpdate");if(el)el.textContent="just now";document.querySelectorAll(".chart-line,.mini-equity,.large-chart").forEach(c=>c.classList.add("live"));};
-    tick();
-    setInterval(tick,5000);
-    console.log("ASTRA UI Command Bridge v5.0 Loaded — modules linked");
+    const tick=()=>{const el=document.getElementById("lastUpdate");if(el)el.textContent="just now";document.querySelectorAll(".chart-line,.mini-equity,.large-chart").forEach(c=>c.classList.add("live"));};tick();setInterval(tick,5000);
+    console.log("ASTRA UI Command Bridge v5.1 Loaded — modules linked");
 });
