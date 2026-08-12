@@ -1,4 +1,3 @@
-
 /* =========================
    REGISTER COMMAND MODULE
 ========================= */
@@ -10,11 +9,9 @@ ASTRA.modules.command = {
         const mode = ASTRA.modules.mode.getMode();
         const lowerCommand = command.toLowerCase().trim();
 
-        // Natural-language trading intelligence.
-        // Let ASTRA understand questions instead of requiring exact commands.
-        if (ASTRA.modules.traderProfile?.handleNaturalLanguage) {
-            if (ASTRA.modules.traderProfile.handleNaturalLanguage(command)) return;
-        }
+        // UNIVERSAL NATURAL LANGUAGE ROUTING
+        // ASTRA understands intent across the whole system before exact commands.
+        if (ASTRA.modules.naturalIntent?.handle?.(command)) return;
 
         const registeredCommand = ASTRA.commands.find(
             cmd => cmd.trigger === lowerCommand
@@ -151,7 +148,7 @@ Approve ${plan.feature}
             }
         }
 
-        // SEND TO AI
+        // SEND TO AI for open-ended conversation and intents not handled locally.
         ASTRA.modules.ai.ask(command);
     }
 };
