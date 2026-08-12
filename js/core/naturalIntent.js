@@ -1,12 +1,12 @@
 /* =========================================
-   ASTRA NATURAL INTENT ENGINE v1.1
+   ASTRA NATURAL INTENT ENGINE v1.2
    Universal conversational routing
 ========================================= */
 const NaturalIntent={
  normalize(message){return String(message||"").toLowerCase().replace(/[’']/g,"").replace(/[^a-z0-9\s?]/g," ").replace(/\s+/g," ").trim();},
  has(text,words){return words.some(word=>text.includes(word));},
  resolve(message){
-  const text=this.normalize(message); if(!text)return{intent:"empty",confidence:1};
+  const text=this.normalize(message);if(!text)return{intent:"empty",confidence:1};
   if(this.has(text,["watch my chart","watch the chart","watch my screen","keep an eye on my chart","keep watching my chart","watch while i trade","watch while im trading"]))return{intent:"observer_start",confidence:.99};
   if(this.has(text,["stop watching","stop watching my chart","stop watching the chart"]))return{intent:"observer_stop",confidence:.99};
   if(this.has(text,["what are you seeing","what do you see","see anything","notice anything","did i miss anything","am i missing anything","anything i missed"]))return{intent:"observer_observe",confidence:.96};
@@ -56,4 +56,4 @@ const NaturalIntent={
  }
 };
 ASTRA.registerModule("naturalIntent",NaturalIntent);
-console.log("ASTRA Natural Intent Engine v1.1 Loaded");
+console.log("ASTRA Natural Intent Engine v1.2 Loaded");
