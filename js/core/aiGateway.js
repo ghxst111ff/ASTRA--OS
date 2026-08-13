@@ -1,6 +1,6 @@
 /* =========================================
-   ASTRA AI GATEWAY v2.5
-   Coach-first conversational responses
+   ASTRA AI GATEWAY v2.6
+   Coach-first + trading-system-aware
 ========================================= */
 const AIGateway={
     extractAnswer(data){
@@ -19,7 +19,26 @@ const AIGateway={
         }
         return JSON.stringify(data);
     },
+    getTradingSystem(){
+        const t=ASTRA.modules.trading?.strategy;
+        if(!t)return null;
+        return {
+            name:ASTRA.modules.trading.name,
+            philosophy:t.philosophy,
+            framework:t.framework,
+            rules:t.rules,
+            execution:t.framework?.execution,
+            higherTimeframe:t.framework?.higherTimeframe,
+            fractalScaling:t.framework?.fractalScaling
+        };
+    },
+    isTradingContext(message,extra={}){
+        const text=String(message||"").toLowerCase();
+        return !!(extra.trading||extra.analysis||extra.backtest||extra.liveTrading||
+            /\b(trad|trade|trading|chart|market|setup|entry|exit|liquidity|supply|demand|structure|timeframe|backtest|forex|pair|position|stop|target|risk)\b/.test(text));
+    },
     async ask(userMessage, extra={}){
+        const tradingContext=this.isTradingContext(userMessage,extra);
         const context=Object.assign({},ASTRA.modules.context?.build?.()||{},extra.context||{}, {
             astraResponseStyle:{
                 role:"70% trading coach, 30% assistant",
@@ -37,17 +56,23 @@ const AIGateway={
             }
         });
 
+        if(tradingContext){
+            const system= this.getTradingSystem();
+            context.tradingSystem={
+                loaded:true,
+                source:"ASTRA.modules.trading.strategy",
+                instruction:"Use this trading system as the user's source of truth for trading questions. Do not replace it with a generic strategy. Before giving trading analysis, compare what is visible or described against this system. Keep live trading and backtesting separate.",
+                system
+            };
+        }
+
         let image=extra.image||null;
         let vision=!!extra.vision;
         if(!image && ASTRA.modules.screen?.sharing && ASTRA.modules.screen?.getFrame){
             image=ASTRA.modules.screen.getFrame({maxWidth:1280,quality:0.55});
             if(image){
                 vision=true;
-                context.screenContext={
-                    shared:true,
-                    frameAttached:true,
-                    instruction:"The attached image is the user's current shared screen. Inspect it directly. Never claim you cannot see the screen when an image is attached. Only describe what is actually visible."
-                };
+                context.screenContext={shared:true,frameAttached:true,instruction:"Inspect the attached current screen directly. Never claim you cannot see the screen when an image is attached. Only describe what is visible."};
             }
         }
 
@@ -63,13 +88,12 @@ const AIGateway={
         try{
             const data=await api.request("",{method:"POST",body:JSON.stringify(payload)});
             const answer=this.extractAnswer(data); AstraReply(answer);
-            return {configured:true,data,answer,vision:!!image};
+            return {configured:true,data,answer,vision:!!image,tradingContext};
         }catch(error){
-            console.error("ASTRA AI API:",error);
-            AstraReply("I hit a connection problem. Try that again.");
+            console.error("ASTRA AI API:",error); AstraReply("I hit a connection problem. Try that again.");
             return {configured:true,error:error.message};
         }
     }
 };
 ASTRA.registerModule("ai",AIGateway);
-console.log("ASTRA AI Gateway v2.5 Loaded");
+console.log("ASTRA AI Gateway v2.6 Loaded");
