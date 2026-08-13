@@ -1,6 +1,6 @@
 /* =========================================
-   ASTRA AI GATEWAY v2.4
-   Text + automatic shared-screen vision
+   ASTRA AI GATEWAY v2.5
+   Coach-first conversational responses
 ========================================= */
 const AIGateway={
     extractAnswer(data){
@@ -22,17 +22,21 @@ const AIGateway={
     async ask(userMessage, extra={}){
         const context=Object.assign({},ASTRA.modules.context?.build?.()||{},extra.context||{}, {
             astraResponseStyle:{
-                priority:"precise, simple, short",
-                maxParagraphs:3,
-                preferBullets:true,
-                avoidUnnecessaryExplanation:true,
+                role:"70% trading coach, 30% assistant",
+                tone:"natural, calm, direct, conversational",
+                priority:"short, precise, simple",
+                vocabulary:"plain everyday words; avoid jargon and big words unless the user uses them first",
+                length:"usually 1-4 short sentences; use bullets only when they make the answer clearer",
+                coaching:"guide the user, point out mistakes, ask one useful question when needed, and say what to do next",
+                liveTrading:"act like a calm trading coach beside the user; do not lecture; focus on what matters right now",
+                backtesting:"talk naturally about the setup, rule, result, and lesson; keep live trading and backtesting separate",
+                analysis:"notice visible things and call them out briefly; do not invent anything",
+                conversation:"respond like a person speaking naturally, not like a report",
+                avoid:"long introductions, repeated disclaimers, formal sections, filler, unnecessary explanations",
                 answerQuestionDirectly:true
             }
         });
 
-        // If the user is sharing a screen, every normal conversation turn
-        // can use the current frame. This keeps ASTRA genuinely aware of
-        // the shared chart instead of requiring a special command.
         let image=extra.image||null;
         let vision=!!extra.vision;
         if(!image && ASTRA.modules.screen?.sharing && ASTRA.modules.screen?.getFrame){
@@ -42,7 +46,7 @@ const AIGateway={
                 context.screenContext={
                     shared:true,
                     frameAttached:true,
-                    instruction:"The attached image is the user's current shared screen. Inspect it directly. Never say you cannot see the screen when an image is attached. Only describe what is visibly supported."
+                    instruction:"The attached image is the user's current shared screen. Inspect it directly. Never claim you cannot see the screen when an image is attached. Only describe what is actually visible."
                 };
             }
         }
@@ -61,10 +65,11 @@ const AIGateway={
             const answer=this.extractAnswer(data); AstraReply(answer);
             return {configured:true,data,answer,vision:!!image};
         }catch(error){
-            console.error("ASTRA AI API:",error); AstraReply("API request failed: "+error.message);
+            console.error("ASTRA AI API:",error);
+            AstraReply("I hit a connection problem. Try that again.");
             return {configured:true,error:error.message};
         }
     }
 };
 ASTRA.registerModule("ai",AIGateway);
-console.log("ASTRA AI Gateway v2.4 Loaded");
+console.log("ASTRA AI Gateway v2.5 Loaded");
