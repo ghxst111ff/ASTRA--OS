@@ -1,6 +1,6 @@
 /* =========================================
-   ASTRA AI GATEWAY v2.3
-   Text + optional chart-frame vision payloads
+   ASTRA AI GATEWAY v2.4
+   Text + automatic shared-screen vision
 ========================================= */
 const AIGateway={
     extractAnswer(data){
@@ -29,9 +29,27 @@ const AIGateway={
                 answerQuestionDirectly:true
             }
         });
+
+        // If the user is sharing a screen, every normal conversation turn
+        // can use the current frame. This keeps ASTRA genuinely aware of
+        // the shared chart instead of requiring a special command.
+        let image=extra.image||null;
+        let vision=!!extra.vision;
+        if(!image && ASTRA.modules.screen?.sharing && ASTRA.modules.screen?.getFrame){
+            image=ASTRA.modules.screen.getFrame({maxWidth:1280,quality:0.55});
+            if(image){
+                vision=true;
+                context.screenContext={
+                    shared:true,
+                    frameAttached:true,
+                    instruction:"The attached image is the user's current shared screen. Inspect it directly. Never say you cannot see the screen when an image is attached. Only describe what is visibly supported."
+                };
+            }
+        }
+
         const payload={question:userMessage,context};
-        if(extra.image)payload.image=extra.image;
-        if(extra.vision)payload.vision=true;
+        if(image)payload.image=image;
+        if(vision)payload.vision=true;
         const api=ASTRA.modules.api;
         if(!api?.status?.().configured){
             console.log("AI PAYLOAD",payload);
@@ -41,7 +59,7 @@ const AIGateway={
         try{
             const data=await api.request("",{method:"POST",body:JSON.stringify(payload)});
             const answer=this.extractAnswer(data); AstraReply(answer);
-            return {configured:true,data,answer};
+            return {configured:true,data,answer,vision:!!image};
         }catch(error){
             console.error("ASTRA AI API:",error); AstraReply("API request failed: "+error.message);
             return {configured:true,error:error.message};
@@ -49,4 +67,4 @@ const AIGateway={
     }
 };
 ASTRA.registerModule("ai",AIGateway);
-console.log("ASTRA AI Gateway v2.3 Loaded");
+console.log("ASTRA AI Gateway v2.4 Loaded");
