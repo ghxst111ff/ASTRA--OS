@@ -1,178 +1,44 @@
 /* =========================================
-   ASTRA COACH ENGINE v1.0
+   ASTRA COACH ENGINE v1.1
    70% coach / 30% assistant
 ========================================= */
 const CoachEngine=(()=>{
     const KEY="ASTRA_COACH_STATE";
-    const DEFAULT={
-        state:"MARKUP",
-        pair:null,
-        timeframe:null,
-        session:null,
-        objective:null,
-        markedUp:[],
-        plan:null,
-        lastObservation:null,
-        lastDecision:null,
-        lessons:[],
-        mistakes:[],
-        strengths:[],
-        setupHistory:[],
-        updatedAt:null
-    };
-
-    let data=load();
-    let observerTimer=null;
-    let observerBusy=false;
-
-    function load(){
-        try{return {...DEFAULT,...(JSON.parse(localStorage.getItem(KEY))||{})};}
-        catch{return {...DEFAULT};}
-    }
+    const DEFAULT={state:"MARKUP",pair:null,timeframe:null,session:null,objective:null,markedUp:[],plan:null,lastObservation:null,lastDecision:null,lessons:[],mistakes:[],strengths:[],setupHistory:[],updatedAt:null};
+    let data=load();let observerTimer=null;let observerBusy=false;
+    function load(){try{return {...DEFAULT,...(JSON.parse(localStorage.getItem(KEY))||{})};}catch{return {...DEFAULT};}}
     function save(){data.updatedAt=new Date().toISOString();localStorage.setItem(KEY,JSON.stringify(data));}
-    function normalizeState(value){
-        const text=String(value||"").toUpperCase();
-        const map={MARKUP:"MARKUP",MARKING:"MARKUP",BACKTEST:"BACKTEST",BACKTESTING:"BACKTEST",PLAN:"PLANNING",PLANNING:"PLANNING",LIVE:"LIVE_TRADING",TRADING:"LIVE_TRADING",LIVE_TRADING:"LIVE_TRADING",REVIEW:"REVIEW",REVIEWING:"REVIEW",JOURNAL:"JOURNAL",JOURNALING:"JOURNAL"};
-        return map[text]||"MARKUP";
-    }
-    function setState(state,reason=""){
-        data.state=normalizeState(state); if(reason)data.lastDecision=reason; save(); return snapshot();
-    }
-    function setMarket(info={}){
-        if(info.pair!==undefined)data.pair=info.pair||null;
-        if(info.timeframe!==undefined)data.timeframe=info.timeframe||null;
-        if(info.session!==undefined)data.session=info.session||null;
-        if(info.objective!==undefined)data.objective=info.objective||null;
-        if(info.plan!==undefined)data.plan=info.plan||null;
-        if(Array.isArray(info.markedUp))data.markedUp=info.markedUp.slice();
-        save(); return snapshot();
-    }
-    function addMarked(item){
-        const value=String(item||"").trim(); if(!value)return snapshot();
-        if(!data.markedUp.includes(value))data.markedUp.push(value); save(); return snapshot();
-    }
+    function normalizeState(value){const text=String(value||"").toUpperCase();const map={MARKUP:"MARKUP",MARKING:"MARKUP",BACKTEST:"BACKTEST",BACKTESTING:"BACKTEST",PLAN:"PLANNING",PLANNING:"PLANNING",LIVE:"LIVE_TRADING",TRADING:"LIVE_TRADING",LIVE_TRADING:"LIVE_TRADING",REVIEW:"REVIEW",REVIEWING:"REVIEW",JOURNAL:"JOURNAL",JOURNALING:"JOURNAL"};return map[text]||"MARKUP";}
+    function setState(state,reason=""){data.state=normalizeState(state);if(reason)data.lastDecision=reason;save();return snapshot();}
+    function syncState(){const mode=localStorage.getItem("ASTRA_CURRENT_MODE");if(mode&&data.state==="MARKUP")data.state=normalizeState(mode);return data.state;}
+    function setMarket(info={}){if(info.pair!==undefined)data.pair=info.pair||null;if(info.timeframe!==undefined)data.timeframe=info.timeframe||null;if(info.session!==undefined)data.session=info.session||null;if(info.objective!==undefined)data.objective=info.objective||null;if(info.plan!==undefined)data.plan=info.plan||null;if(Array.isArray(info.markedUp))data.markedUp=info.markedUp.slice();save();return snapshot();}
+    function addMarked(item){const value=String(item||"").trim();if(!value)return snapshot();if(!data.markedUp.includes(value))data.markedUp.push(value);save();return snapshot();}
     function addLesson(lesson){const value=String(lesson||"").trim();if(value){data.lessons.push({text:value,date:new Date().toISOString()});save();}return snapshot();}
     function addMistake(mistake){const value=String(mistake||"").trim();if(value){data.mistakes.push({text:value,date:new Date().toISOString()});save();}return snapshot();}
     function addStrength(strength){const value=String(strength||"").trim();if(value){data.strengths.push({text:value,date:new Date().toISOString()});save();}return snapshot();}
-
-    function tradingSystem(){
-        const system=ASTRA.modules.trading?.strategy;
-        return system?{
-            philosophy:system.philosophy||[],
-            framework:system.framework||{},
-            rules:system.rules||[]
-        }:null;
-    }
-
+    function tradingSystem(){const system=ASTRA.modules.trading?.strategy;return system?{philosophy:system.philosophy||[],framework:system.framework||{},rules:system.rules||[]}:null;}
     function journal(){return ASTRA.modules.journal?.getData?.()||{trades:[]};}
     function backtest(){return ASTRA.modules.backtesting?.getTrades?.()||[];}
-
-    function setupValidation(setup={}){
-        const system=tradingSystem();
-        if(!system)return {status:"UNKNOWN",reasons:["Trading system is not loaded."]};
-        const reasons=[]; let score=0; let checks=0;
-        const higher=setup.higherTimeframeContext||setup.higherTF||data.objective||null;
-        const shift=setup.structureShift||setup.shift||null;
-        const liquidity=setup.liquidity||null;
-        const confirmation=setup.confirmation||null;
-        checks++;
-        if(higher){score++;}else reasons.push("Higher-timeframe context is missing.");
-        checks++;
-        if(shift){score++;}else reasons.push("No clear lower-timeframe structure shift yet.");
-        checks++;
-        if(liquidity){score++;}else reasons.push("Liquidity is not clearly identified.");
-        checks++;
-        if(confirmation){score++;}else reasons.push("Entry confirmation is missing.");
-        const status=score===checks?"ALIGNED":score>=2?"PARTIALLY ALIGNED":"NOT ALIGNED";
-        const result={status,score,checks,reasons,system:"Jay Fractal Market Delivery System"};
-        data.setupHistory.push({date:new Date().toISOString(),setup,result});
-        save(); return result;
-    }
-
-    function riskGuardrail(trade={}){
-        const rules=tradingSystem()?.rules||[];
-        const journalData=journal();
-        const result=String(trade.result||"").toLowerCase();
-        const warnings=[];
-        if(!trade.higherTimeframeContext)warnings.push("No higher-timeframe context.");
-        if(!trade.structureShift)warnings.push("No clear structure shift.");
-        if(!trade.liquidity)warnings.push("Liquidity is not confirmed.");
-        if(!trade.confirmation)warnings.push("Entry confirmation is missing.");
-        if(result.includes("loss")&&trade.ruleBreak)warnings.push("This may repeat a known rule break.");
-        return {blocked:warnings.length>=3,warnings,rules,tradeCount:journalData.trades?.length||0};
-    }
-
-    function mistakePatterns(){
-        const trades=journal().trades||[]; const counts={};
-        trades.forEach(t=>{
-            const raw=t.mistakes||t.mistake||t.ruleBreak||"";
-            if(!raw)return;
-            String(raw).split(/[,;|]/).map(x=>x.trim().toLowerCase()).filter(Boolean).forEach(x=>counts[x]=(counts[x]||0)+1);
-        });
-        data.mistakes.forEach(m=>{const k=m.text.toLowerCase();counts[k]=(counts[k]||0)+1;});
-        return Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(([mistake,count])=>({mistake,count}));
-    }
-
-    function performanceInsight(){
-        const trades=journal().trades||[]; const total=trades.length;
-        const wins=trades.filter(t=>String(t.result).toLowerCase()==="win").length;
-        const losses=trades.filter(t=>String(t.result).toLowerCase()==="loss").length;
-        const setups={};
-        trades.forEach(t=>{const s=t.setup||"Unknown";setups[s]??={trades:0,wins:0};setups[s].trades++;if(String(t.result).toLowerCase()==="win")setups[s].wins++;});
-        const ranked=Object.entries(setups).map(([name,v])=>({name,...v,winRate:v.trades?Math.round(v.wins/v.trades*100):0})).sort((a,b)=>b.winRate-a.winRate);
-        const mistakes=mistakePatterns();
-        return {total,wins,losses,winRate:total?Math.round(wins/total*100):0,bestSetup:ranked[0]||null,setupStats:ranked,topMistakes:mistakes.slice(0,5),lessons:data.lessons.slice(-10)};
-    }
-
-    function backtestInsight(){
-        const trades=backtest();
-        if(!trades.length)return {total:0,message:"No backtest trades recorded yet."};
-        const wins=trades.filter(t=>Number(t.pnl)>0).length;
-        const losses=trades.filter(t=>Number(t.pnl)<0).length;
-        return {total:trades.length,wins,losses,winRate:Math.round(wins/trades.length*100),netPnl:trades.reduce((s,t)=>s+Number(t.pnl||0),0)};
-    }
-
-    function screenObservation(){
-        const screen=ASTRA.modules.screen;
-        if(!screen)return null;
-        const analysis=screen.getAnalysis?.();
-        if(analysis){data.lastObservation=analysis;save();}
-        return analysis||data.lastObservation||null;
-    }
-
-    function snapshot(){return JSON.parse(JSON.stringify({state:data.state,pair:data.pair,timeframe:data.timeframe,session:data.session,objective:data.objective,markedUp:data.markedUp,plan:data.plan,lastObservation:data.lastObservation,lastDecision:data.lastDecision,lessons:data.lessons.slice(-10),mistakes:data.mistakes.slice(-10),strengths:data.strengths.slice(-10),updatedAt:data.updatedAt}));}
-
-    function context(){return {coachEngine:{loaded:true,state:snapshot(),tradingSystem:tradingSystem(),performance:performanceInsight(),backtest:backtestInsight(),mistakePatterns:mistakePatterns().slice(0,5),screen:screenObservation()}};}
-
+    function setupValidation(setup={}){const system=tradingSystem();if(!system)return{status:"UNKNOWN",reasons:["Trading system is not loaded."]};const reasons=[];let score=0;let checks=0;const higher=setup.higherTimeframeContext||setup.higherTF||data.objective||null;const shift=setup.structureShift||setup.shift||null;const liquidity=setup.liquidity||null;const confirmation=setup.confirmation||null;checks++;if(higher)score++;else reasons.push("Higher-timeframe context is missing.");checks++;if(shift)score++;else reasons.push("No clear lower-timeframe structure shift yet.");checks++;if(liquidity)score++;else reasons.push("Liquidity is not clearly identified.");checks++;if(confirmation)score++;else reasons.push("Entry confirmation is missing.");const status=score===checks?"ALIGNED":score>=2?"PARTIALLY ALIGNED":"NOT ALIGNED";const result={status,score,checks,reasons,system:"Jay Fractal Market Delivery System"};data.setupHistory.push({date:new Date().toISOString(),setup,result});save();return result;}
+    function riskGuardrail(trade={}){const rules=tradingSystem()?.rules||[];const journalData=journal();const warnings=[];if(!trade.higherTimeframeContext)warnings.push("No higher-timeframe context.");if(!trade.structureShift)warnings.push("No clear structure shift.");if(!trade.liquidity)warnings.push("Liquidity is not confirmed.");if(!trade.confirmation)warnings.push("Entry confirmation is missing.");if(trade.ruleBreak)warnings.push("This may repeat a known rule break.");return{blocked:warnings.length>=3,warnings,rules,tradeCount:journalData.trades?.length||0};}
+    function mistakePatterns(){const trades=journal().trades||[];const counts={};trades.forEach(t=>{const raw=t.mistakes||t.mistake||t.ruleBreak||"";if(!raw)return;String(raw).split(/[,;|]/).map(x=>x.trim().toLowerCase()).filter(Boolean).forEach(x=>counts[x]=(counts[x]||0)+1);});data.mistakes.forEach(m=>{const k=m.text.toLowerCase();counts[k]=(counts[k]||0)+1;});return Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(([mistake,count])=>({mistake,count}));}
+    function performanceInsight(){const trades=journal().trades||[];const total=trades.length;const wins=trades.filter(t=>String(t.result).toLowerCase()==="win").length;const losses=trades.filter(t=>String(t.result).toLowerCase()==="loss").length;const setups={};trades.forEach(t=>{const s=t.setup||"Unknown";setups[s]??={trades:0,wins:0};setups[s].trades++;if(String(t.result).toLowerCase()==="win")setups[s].wins++;});const ranked=Object.entries(setups).map(([name,v])=>({name,...v,winRate:v.trades?Math.round(v.wins/v.trades*100):0})).sort((a,b)=>b.winRate-a.winRate);return{total,wins,losses,winRate:total?Math.round(wins/total*100):0,bestSetup:ranked[0]||null,setupStats:ranked,topMistakes:mistakePatterns().slice(0,5),lessons:data.lessons.slice(-10)};}
+    function backtestInsight(){const trades=backtest();if(!trades.length)return{total:0,message:"No backtest trades recorded yet."};const wins=trades.filter(t=>Number(t.pnl)>0).length;const losses=trades.filter(t=>Number(t.pnl)<0).length;return{total:trades.length,wins,losses,winRate:Math.round(wins/trades.length*100),netPnl:trades.reduce((s,t)=>s+Number(t.pnl||0),0)};}
+    function screenObservation(){const screen=ASTRA.modules.screen;if(!screen)return null;const analysis=screen.getAnalysis?.();if(analysis){data.lastObservation=analysis;save();}return analysis||data.lastObservation||null;}
+    function snapshot(){syncState();return JSON.parse(JSON.stringify({state:data.state,pair:data.pair,timeframe:data.timeframe,session:data.session,objective:data.objective,markedUp:data.markedUp,plan:data.plan,lastObservation:data.lastObservation,lastDecision:data.lastDecision,lessons:data.lessons.slice(-10),mistakes:data.mistakes.slice(-10),strengths:data.strengths.slice(-10),updatedAt:data.updatedAt}));}
+    function context(){return{coachEngine:{loaded:true,state:snapshot(),tradingSystem:tradingSystem(),performance:performanceInsight(),backtest:backtestInsight(),mistakePatterns:mistakePatterns().slice(0,5),screen:screenObservation()}};}
+    function buildContext(){return context();}
     function shouldObserve(){return data.state==="MARKUP"&&ASTRA.modules.screen?.sharing;}
-    async function observe(){
-        if(observerBusy||!shouldObserve())return null;
-        observerBusy=true;
-        try{
-            const frame=ASTRA.modules.screen.getFrame?.({maxWidth:1280,quality:0.5});
-            if(!frame)return null;
-            data.lastObservation={capturedAt:new Date().toISOString(),frameAttached:true,...(ASTRA.modules.screen.getAnalysis?.()||{})};save();
-            return frame;
-        }finally{observerBusy=false;}
-    }
-    function startObserver(intervalMs=12000){
-        stopObserver(); observerTimer=setInterval(observe,Math.max(8000,Number(intervalMs)||12000)); observe(); return true;
-    }
+    async function observe(){if(observerBusy||!shouldObserve())return null;observerBusy=true;try{const frame=ASTRA.modules.screen.getFrame?.({maxWidth:1280,quality:0.5});if(!frame)return null;data.lastObservation={capturedAt:new Date().toISOString(),frameAttached:true,...(ASTRA.modules.screen.getAnalysis?.()||{})};save();return frame;}finally{observerBusy=false;}}
+    function startObserver(intervalMs=12000){stopObserver();observerTimer=setInterval(observe,Math.max(8000,Number(intervalMs)||12000));observe();return true;}
     function stopObserver(){if(observerTimer){clearInterval(observerTimer);observerTimer=null;}return true;}
-
-    function status(){return {online:true,state:data.state,pair:data.pair,timeframe:data.timeframe,markedUp:data.markedUp.length,observing:!!observerTimer,screenSharing:!!ASTRA.modules.screen?.sharing};}
-
+    function status(){return{online:true,state:syncState(),pair:data.pair,timeframe:data.timeframe,markedUp:data.markedUp.length,observing:!!observerTimer,screenSharing:!!ASTRA.modules.screen?.sharing};}
     ASTRA.commands.push({trigger:"coach status",action:()=>AstraReply(JSON.stringify(status()))});
-    ASTRA.commands.push({trigger:"where were we",action:()=>{
-        const s=snapshot(); AstraReply(`${s.pair||"No pair saved yet."}${s.timeframe?" • "+s.timeframe:""}. ${s.markedUp.length?"Marked: "+s.markedUp.join(", "):"Nothing marked yet."}${s.lastDecision?" Last decision: "+s.lastDecision:""}`);
-    }});
+    ASTRA.commands.push({trigger:"where were we",action:()=>{const s=snapshot();AstraReply(`${s.pair||"No pair saved yet."}${s.timeframe?" • "+s.timeframe:""}. ${s.markedUp.length?"Marked: "+s.markedUp.join(", "):"Nothing marked yet."}${s.lastDecision?" Last decision: "+s.lastDecision:""}`);}});
     ASTRA.commands.push({trigger:"what did we mark",action:()=>{const s=snapshot();AstraReply(s.markedUp.length?`We marked: ${s.markedUp.join(", ")}.`:"We haven't saved any marked levels yet.");}});
     ASTRA.commands.push({trigger:"setup check",action:()=>AstraReply(JSON.stringify(setupValidation({higherTimeframeContext:data.objective,liquidity:data.markedUp.find(x=>/liquidity/i.test(x)),structureShift:data.lastObservation?.structure,confirmation:data.plan}))) });
     ASTRA.commands.push({trigger:"performance insight",action:()=>AstraReply(JSON.stringify(performanceInsight()))});
     ASTRA.commands.push({trigger:"backtest insight",action:()=>AstraReply(JSON.stringify(backtestInsight()))});
-
-    return {name:"ASTRA Coach Engine",version:"1.0",setState,setMarket,addMarked,addLesson,addMistake,addStrength,tradingSystem,setupValidation,riskGuardrail,mistakePatterns,performanceInsight,backtestInsight,screenObservation,observe,startObserver,stopObserver,status,snapshot,context};
+    return{name:"ASTRA Coach Engine",version:"1.1",setState,setMarket,addMarked,addLesson,addMistake,addStrength,tradingSystem,setupValidation,riskGuardrail,mistakePatterns,performanceInsight,backtestInsight,screenObservation,startObserver,stopObserver,status,snapshot,context,buildContext};
 })();
-ASTRA.modules.coach=CoachEngine;
-ASTRA.modules.coachEngine=CoachEngine;
-console.log("ASTRA Coach Engine v1.0 Loaded");
+ASTRA.modules.coach=CoachEngine;ASTRA.modules.coachEngine=CoachEngine;console.log("ASTRA Coach Engine v1.1 Loaded");
