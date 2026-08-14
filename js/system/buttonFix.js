@@ -1,7 +1,7 @@
 /* ASTRA UI FIX — dashboard controls + core conversation + screen + coach */
 (function bootCoachAI(){
   const load=src=>new Promise(resolve=>{const s=document.createElement("script");s.src=src;s.onload=resolve;s.onerror=resolve;document.head.appendChild(s);});
-  (async()=>{if(!window.ASTRA?.modules?.coach)await load("js/modules/coachEngine.js?v=1.1");await load("js/core/aiGateway.js?v=2.8");console.log("ASTRA Coach + AI gateway refreshed");})();
+  (async()=>{if(!window.ASTRA?.modules?.coach)await load("js/modules/coachEngine.js?v=1.1");await load("js/core/aiGateway.js?v=2.8");await load("js/modules/proactiveMarketObserver.js?v=2.2");console.log("ASTRA Coach + AI + Observer refreshed");})();
 })();
 window.addEventListener("DOMContentLoaded",()=>{
   const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
