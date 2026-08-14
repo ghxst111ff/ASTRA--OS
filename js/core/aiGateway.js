@@ -1,6 +1,6 @@
 /* =========================================
-   ASTRA AI GATEWAY v2.8
-   Coach + trading system + market memory
+   ASTRA AI GATEWAY v2.9
+   Coach Engine + trading system + market memory
 ========================================= */
 const AIGateway={
     extractAnswer(data){
@@ -10,18 +10,19 @@ const AIGateway={
         return JSON.stringify(data);
     },
     getTradingSystem(){const t=ASTRA.modules.trading?.strategy;if(!t)return null;return{name:ASTRA.modules.trading.name,philosophy:t.philosophy,framework:t.framework,rules:t.rules,execution:t.framework?.execution,higherTimeframe:t.framework?.higherTimeframe,fractalScaling:t.framework?.fractalScaling};},
-    isTradingContext(message,extra={}){const text=String(message||"").toLowerCase();return !!(extra.trading||extra.analysis||extra.backtest||extra.liveTrading||/\b(trad|trade|trading|chart|market|setup|entry|exit|liquidity|supply|demand|structure|timeframe|backtest|forex|pair|position|stop|target|risk|markup|mark up|marked)\b/.test(text));},
+    isTradingContext(message,extra={}){const text=String(message||"").toLowerCase();return !!(extra.trading||extra.analysis||extra.backtest||extra.liveTrading||/\b(trad|trade|trading|chart|market|setup|entry|exit|liquidity|supply|demand|structure|timeframe|backtest|forex|pair|position|stop|target|risk|markup|mark up|marked|mistake|performance)\b/.test(text));},
     async ask(userMessage,extra={}){
         const tradingContext=this.isTradingContext(userMessage,extra);
         const base=ASTRA.modules.context?.build?.()||{};
-        const coach=ASTRA.modules.coach?.buildContext?.()||{};
-        const context=Object.assign({},base,coach,extra.context||{}, {astraResponseStyle:{role:"70% trading coach, 30% assistant",tone:"natural, calm, direct, conversational",priority:"short, precise, simple",vocabulary:"plain everyday words; avoid jargon and big words unless the user uses them first",length:"usually 1-4 short sentences; use bullets only when they make the answer clearer",coaching:"guide the user, point out mistakes, ask one useful question when needed, and say what to do next",liveTrading:"act like a calm trading coach beside the user; do not lecture; focus on what matters right now",backtesting:"talk naturally about the setup, rule, result, and lesson; keep live trading and backtesting separate",analysis:"notice visible things and call them out briefly; do not invent anything",conversation:"respond like a person speaking naturally, not like a report",avoid:"long introductions, repeated disclaimers, formal sections, filler, repeated context, unnecessary explanations",answerQuestionDirectly:true}});
+        const coach=ASTRA.modules.coach?.buildContext?.()||ASTRA.modules.coach?.context?.()||{};
+        const context=Object.assign({},base,coach,extra.context||{}, {astraResponseStyle:{role:"70% trading coach, 30% assistant",tone:"natural, calm, direct, conversational",priority:"short, precise, simple",vocabulary:"plain everyday words; avoid jargon and big words unless the user uses them first",length:"usually 1-4 short sentences; use bullets only when clearer",coaching:"notice useful things, point out mistakes, challenge weak reasoning, and suggest one next step",proactive:"when screen or market evidence is available, speak up about important observations without waiting for a question",liveTrading:"calm coach beside the user; focus on process and the current decision; do not lecture",backtesting:"coach the setup, rule, result, and lesson; never mix backtest results with live-trading progress",analysis:"compare visible evidence with Jay's trading system; do not invent anything",conversation:"sound like a natural conversation, not a report",avoid:"long introductions, repeated disclaimers, formal sections, filler, repeated context, unnecessary explanations",answerQuestionDirectly:true}});
         if(tradingContext){
             const memory=ASTRA.modules.memory;
             const session=memory?.recordMarketMessage?.(userMessage,extra);
             context.currentMarketSession=session||memory?.currentMarketSession?.()||null;
             context.marketMemoryInstruction="Remember the current market session. If the user asks where we were, identify the saved pair, timeframe, markup, plan, last screen analysis, and last message. Never invent missing details. If multiple markets are saved, use the most recently updated or the pair the user names.";
             context.tradingSystem={loaded:true,source:"ASTRA.modules.trading.strategy",instruction:"Use this trading system as the user's source of truth for trading questions. Keep live trading and backtesting separate. Compare chart observations to this system before coaching.",system:this.getTradingSystem()};
+            context.coachInstruction="Coach first. Use current state, screen observations, history, trade data, and setup checks. If the user is missing a key step, point it out briefly. Do not wait for a direct question when an important visible issue is present.";
         }
         let image=extra.image||null;let vision=!!extra.vision;
         if(!image&&ASTRA.modules.screen?.sharing&&ASTRA.modules.screen?.getFrame){image=ASTRA.modules.screen.getFrame({maxWidth:1280,quality:0.55});if(image){vision=true;context.screenContext={shared:true,frameAttached:true,instruction:"Inspect the attached current screen directly. Never claim you cannot see the screen when an image is attached. Only describe what is visible."};}}
@@ -31,4 +32,4 @@ const AIGateway={
         catch(error){console.error("ASTRA AI API:",error);AstraReply("I hit a connection problem. Try that again.");return{configured:true,error:error.message};}
     }
 };
-ASTRA.registerModule("ai",AIGateway);console.log("ASTRA AI Gateway v2.8 Loaded");
+ASTRA.registerModule("ai",AIGateway);console.log("ASTRA AI Gateway v2.9 Loaded");
