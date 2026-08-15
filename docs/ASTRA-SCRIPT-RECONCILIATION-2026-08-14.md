@@ -4,122 +4,151 @@ Date: 2026-08-14
 
 ## Purpose
 
-Reconcile the legacy `script.js` against the current modular ASTRA OS architecture without creating duplicate modules or duplicate implementations.
+Reconcile the legacy `script.js` against the current modular ASTRA OS architecture without restoring duplicate implementations.
 
 The legacy script is treated as a source of functionality to preserve, not as a file to restore.
 
 ## Result
 
-**No new functional module was required.** Every substantive subsystem found in the legacy `script.js` already has a canonical implementation in the current repository.
+No new functional module was required. The current repository already has canonical owners for the substantive legacy subsystems.
 
-The correct action is therefore:
-
-1. Keep the current modular implementations.
-2. Do not restore `script.js`.
-3. Do not create duplicate compatibility modules.
-4. Keep UI/event-boundary behavior owned by `runtimeIntegrity.js`.
-5. Preserve legacy functionality through the existing canonical modules.
+The comparison did, however, identify several **behavioral regressions / incomplete migrations**. Those were repaired in the canonical owners rather than by recreating the legacy script.
 
 ## Functionality Ownership Map
 
-| Legacy script section | Canonical owner | Status |
+| Legacy responsibility | Canonical owner | Result |
 |---|---|---|
-| ASTRA v2.0 Core Engine | `js/core/astra.js` | Preserved |
+| ASTRA core | `js/core/astra.js` | Preserved |
 | Module Manager | `js/core/moduleManager.js` | Preserved |
-| Response Module / `AstraReply()` | `js/core/response.js` | Preserved |
-| Update Module | `js/system/updates.js` | Preserved |
-| Memory Module | `js/modules/memory.js` | Preserved |
-| Trading Strategy Module | `js/modules/trading.js` | Preserved |
-| Trading command registration | `js/modules/trading.js` / command routing | Preserved; duplicate legacy command removed |
-| Verification Module | `js/system/verification.js` | Preserved |
-| Command Router Module | `js/core/commandRouter.js` | Preserved |
-| Intent detection / open-close panel detection | `js/core/intentDetector.js` | Preserved |
-| Installer | `js/system/installer.js` | Preserved and strengthened |
-| System Verifier | `js/system/systemVerifier.js` | Preserved |
-| Build Executor | `js/system/buildExecutor.js` | Preserved |
+| Response / `AstraReply()` | `js/core/response.js` | Preserved |
+| Updates | `js/system/updates.js` | Preserved |
+| Memory | `js/modules/memory.js` | Preserved |
+| Trading Strategy | `js/modules/trading.js` | Preserved |
+| Verification Engine | `js/system/verification.js` | Preserved |
+| Command Router | `js/core/commandRouter.js` | Preserved + repaired |
+| Intent detection | `js/core/intentDetector.js` | Preserved + repaired at routing boundary |
+| Installer | `js/system/installer.js` | Preserved + tested-build gate |
+| System Verifier | `js/system/systemVerifier.js` | Preserved + now bridges to Verification Engine |
+| Build Executor | `js/system/buildExecutor.js` | Preserved + syntax validation |
 | Module Factory | `js/system/moduleFactory.js` | Preserved |
-| Module Activator | `js/core/activator.js` | Preserved |
+| Activator | `js/core/activator.js` | Preserved |
 | Connection Manager | `js/system/connectionManager.js` | Preserved |
-| Mode Controller | `js/system/modeController.js` | Preserved |
+| Mode Controller / Switcher | `js/system/modeController.js` / `modeSwitcher.js` | Preserved |
 | Dependency Manager | `js/core/dependencyManager.js` | Preserved |
-| Mode Binding Manager | `js/system/modeBindingManager.js` | Preserved |
-| Mode Switcher | `js/system/modeSwitcher.js` | Preserved |
-| Module Blueprint System | `js/system/moduleBlueprints.js` | Preserved |
+| Mode Binding | `js/system/modeBindingManager.js` | Preserved |
+| Module Blueprints | `js/system/moduleBlueprints.js` | Preserved |
 | Build Memory | `js/system/buildMemory.js` | Preserved |
-| Journal Module | `js/modules/journal.js` | Preserved |
-| Performance Module | `js/modules/performance.js` | Preserved |
-| Risk Management Module | `js/modules/risk.js` | Preserved |
+| Journal | `js/modules/journal.js` | Preserved |
+| Performance | `js/modules/performance.js` | Preserved |
+| Risk | `js/modules/risk.js` | Preserved |
 | Build Planner | `js/system/buildPlanner.js` | Preserved |
 | Update Analyzer | `js/system/updateAnalyzer.js` | Preserved |
 | Code Generator | `js/system/codeGenerator.js` | Preserved |
-| Psychology Module | `js/modules/psychology.js` | Preserved |
-| Screen Module | `js/modules/screen.js` | Preserved |
-| Context construction (`buildContext`) | `js/core/contextEngine.js` | Preserved |
-| UI command bridge / send handling | `js/system/runtimeIntegrity.js` | Preserved; duplicate legacy handlers intentionally not restored |
-| Learning persistence (`ASTRA.learn`) | `js/core/learningEngine.js` | Preserved by canonical learning engine |
-| AI request path (`askAI`) | `js/core/aiGateway.js` | Preserved by canonical AI gateway |
+| Psychology | `js/modules/psychology.js` | Preserved |
+| Screen | `js/modules/screen.js` | Preserved + expanded |
+| Context | `js/core/contextEngine.js` | Preserved + expanded |
+| Learning | `js/core/learningEngine.js` | Preserved |
+| AI Gateway | `js/core/aiGateway.js` | Preserved + expanded |
 | Mode Manager | `js/core/modeManager.js` | Preserved |
-| Backup System | `js/system/backup.js` | Preserved |
+| Backup | `js/system/backup.js` | Preserved + repaired |
+| Runtime UI boundary | `js/system/runtimeIntegrity.js` | Canonical; legacy handlers intentionally excluded |
+
+## Regressions Found and Repaired
+
+### 1. Legacy system commands were missing from the canonical router
+
+The legacy router supported:
+
+- `astra version`
+- `astra modules`
+
+The canonical router did not explicitly handle these commands, so they could fall through to AI routing.
+
+**Repair:** `js/core/commandRouter.js` now handles both commands directly.
+
+### 2. Legacy open/close intent could report success without changing the current UI view
+
+The legacy intent detector returns names such as `journal`, while the current UI uses IDs such as `view-journal` and the canonical UI helper `ASTRAShowView()`.
+
+The previous command boundary attempted `getElementById("journal")`, which does not address the current view structure.
+
+**Repair:** the canonical command router now routes open/close intent through `ASTRAShowView()` when available and falls back to `view-*` IDs.
+
+### 3. Command-module registration compatibility was missing
+
+The legacy command module exposed a `registerCommand()` method. The current core already provides `ASTRA.registerCommand()`, so creating another command registry would be duplicate architecture.
+
+**Repair:** the canonical command module now exposes a small compatibility wrapper that delegates to `ASTRA.registerCommand()`.
+
+### 4. Installation was not actually gated by the canonical Verification Engine
+
+The repository had two related systems:
+
+- `js/system/verification.js` — the Verification Engine
+- `js/system/systemVerifier.js` — the system-level installation gate
+
+The installer called `systemVerifier.verify()`, but the system verifier previously checked only the update record, module presence, and command router. It did not invoke the canonical Verification Engine.
+
+This meant the Appendix J requirement that failed verification block installation was not fully enforced.
+
+**Repair:** `js/system/systemVerifier.js` v1.1 now invokes `ASTRA.modules.verification.verify(moduleName)` and fails the installation gate when that verification fails or is unavailable.
+
+This preserves the two-layer architecture instead of merging the modules.
+
+### 5. Backup restore was only a status message
+
+The legacy and canonical backup modules both contained a `restore()` function, but it only reported that a backup existed. It did not restore the stored databases.
+
+Appendix J explicitly requires backup restoration to function when required.
+
+**Repair:** `js/system/backup.js` v2.1 now restores memory, journal, performance, updates, and mode state from the saved backup and reports success/failure.
 
 ## Duplicate Logic Identified and Excluded
 
-### 1. Duplicate `show strategy` command
+### Duplicate `show strategy`
 
-The legacy script registered `show strategy` twice. One registration called `TradingModule.show()` and the second attempted to call `TradingModule.showStrategy()`. The duplicate registration is not part of the canonical architecture.
+The legacy script registered `show strategy` twice. One registration called `TradingModule.show()` and another attempted `TradingModule.showStrategy()` even though that method was not present in the shown trading module.
 
-The trading module remains the single owner of trading-strategy presentation.
+The duplicate registration was not restored.
 
-### 2. Duplicate UI event handling
+### Duplicate UI event handling
 
-The legacy script installed direct `DOMContentLoaded`, `sendBtn`, Enter-key, panel-button, and `.module-btn` handlers. The current repository has a dedicated runtime boundary in `js/system/runtimeIntegrity.js` that explicitly prevents duplicate UI handling.
+The legacy script installed direct send-button, Enter-key, panel-button, and `.module-btn` handlers. The current architecture deliberately assigns conversation event ownership to `runtimeIntegrity.js`.
 
-The legacy handlers must not be restored.
+Those handlers were not restored.
 
-### 3. Duplicate intent detection
+### Duplicate intent / context / AI / learning helpers
 
-The legacy `detectIntent()` implementation is already represented by `js/core/intentDetector.js`. A second detector would be duplicate logic.
+Legacy global helpers are represented by canonical modules for intent, context, AI, and learning. Parallel implementations would violate the one-owner rule.
 
-### 4. Duplicate AI/context/learning helpers
+## Verification Status
 
-The legacy global `buildContext()`, `askAI()`, and `ASTRA.learn()` implementations are functionality owned by the current context, AI gateway, and learning engines. The legacy copies must not be restored as parallel engines.
+Static repository comparison confirms the repaired responsibilities exist in their canonical owners.
 
-## Legacy Functionality That Is Intentionally Not a New Module
+The repairs were committed incrementally as canonical module changes:
 
-The following are helpers or UI glue rather than independent ASTRA subsystems:
+1. Command router compatibility and current-view routing.
+2. System verifier → Verification Engine integration.
+3. Functional backup restoration.
 
-- `AstraReply()` convenience access
-- `detectIntent()` helper
-- `buildContext()` helper
-- `askAI()` helper
-- `ASTRA.learn()` convenience API
-- empty panel click callbacks
-- `.module-btn` event wiring
-- DOMContentLoaded send wiring
+Browser-level testing is still required for actual DOM routing, localStorage behavior in-browser, screen sharing, voice APIs, and live AI connectivity. Appendix J requires those runtime layers to be tested before calling the release stable.
 
-Creating modules for these would create artificial module duplication. Their responsibilities belong to the canonical modules and runtime boundary already present.
-
-## Architecture Rule Established
-
-ASTRA now follows a strict ownership rule:
+## Architecture Rule
 
 > **One subsystem = one canonical implementation = one module owner.**
 
-A legacy function may be moved into an existing module, replaced by an existing module API, or removed when it is dead/duplicated. It must not be copied into a second module merely to preserve its old filename or global function shape.
-
-## Verification Notes
-
-The current repository already contains dedicated implementations for the major legacy responsibilities, including the core registry, module management, intent detection, updates, verification, installer, build execution, build planning, module factory/activation, modes, memory, trading, journal, performance, risk, psychology, screen, backup, AI, context, learning, and runtime UI integrity.
-
-The installer additionally enforces the tested-build requirement before installation, which is stricter than the legacy installer path.
+A legacy function may be moved into an existing canonical module, replaced by an existing module API, or removed when it is dead/duplicated. It should not be copied into a second module merely to preserve its old filename or global shape.
 
 ## Final Decision
 
-**New modules created: 0**
+**New functional modules created: 0**
 
 **Duplicate modules created: 0**
 
 **Legacy `script.js` restored: No**
 
-**Canonical modular architecture retained: Yes**
+**Canonical architecture retained: Yes**
 
-The reconciliation is therefore complete at the module-ownership level. Future changes should modify the canonical owner rather than adding another implementation of the same responsibility.
+**Behavioral migration defects repaired: 5**
+
+The migration review is complete at the repository/static-analysis level. The remaining work is browser-level verification according to Appendix J.
