@@ -1,5 +1,5 @@
 /* =========================================
-   ASTRA HISTORY + LONG-TERM MEMORY v1.1
+   ASTRA HISTORY + LONG-TERM MEMORY v1.2
    Unified persistent history for conversations, trading,
    backtesting, journal, coaching, screen reviews, and lessons.
    IndexedDB is the primary store; localStorage is the fast cache.
@@ -11,75 +11,28 @@ const AstraHistory = (()=>{
     const CACHE_KEY="ASTRA_HISTORY_CACHE_V1";
     const META_KEY="ASTRA_HISTORY_META_V1";
     const MAX_CACHE=500;
-    let db=null;
-    let readyPromise=null;
-    let cache=[];
-    let initialized=false;
-
+    let db=null,readyPromise=null,cache=[],initialized=false;
     function safeClone(value){try{return JSON.parse(JSON.stringify(value));}catch{return String(value??"");}}
-    function compact(value,max=4000){
-        const cloned=safeClone(value);
-        const text=typeof cloned==="string"?cloned:JSON.stringify(cloned);
-        return text.length>max?text.slice(0,max)+"…":cloned;
-    }
+    function compact(value,max=4000){const cloned=safeClone(value);const text=typeof cloned==="string"?cloned:JSON.stringify(cloned);return text.length>max?text.slice(0,max)+"…":cloned;}
     function loadCache(){try{const raw=JSON.parse(localStorage.getItem(CACHE_KEY)||"[]");cache=Array.isArray(raw)?raw.slice(-MAX_CACHE):[];}catch{cache=[];}}
     function saveCache(){try{localStorage.setItem(CACHE_KEY,JSON.stringify(cache.slice(-MAX_CACHE)));}catch{}}
-    function openDB(){
-        if(readyPromise)return readyPromise;
-        readyPromise=new Promise(resolve=>{
-            if(!window.indexedDB){resolve(null);return;}
-            try{
-                const request=indexedDB.open(DB_NAME,DB_VERSION);
-                request.onupgradeneeded=()=>{const database=request.result;if(!database.objectStoreNames.contains(STORE)){const store=database.createObjectStore(STORE,{keyPath:"id",autoIncrement:true});store.createIndex("date","date");store.createIndex("type","type");}};
-                request.onsuccess=()=>{db=request.result;resolve(db);};request.onerror=()=>resolve(null);
-            }catch{resolve(null);}
-        });
-        return readyPromise;
-    }
+    function openDB(){if(readyPromise)return readyPromise;readyPromise=new Promise(resolve=>{if(!window.indexedDB){resolve(null);return;}try{const request=indexedDB.open(DB_NAME,DB_VERSION);request.onupgradeneeded=()=>{const database=request.result;if(!database.objectStoreNames.contains(STORE)){const store=database.createObjectStore(STORE,{keyPath:"id",autoIncrement:true});store.createIndex("date","date");store.createIndex("type","type");}};request.onsuccess=()=>{db=request.result;resolve(db);};request.onerror=()=>resolve(null);}catch{resolve(null);}});return readyPromise;}
     async function writeDB(event){const database=await openDB();if(!database)return;try{await new Promise(resolve=>{const tx=database.transaction(STORE,"readwrite");tx.objectStore(STORE).add(event);tx.oncomplete=resolve;tx.onerror=resolve;});}catch{}}
-    async function readAllDB(limit=500){
-        const database=await openDB();if(!database)return [];
-        return new Promise(resolve=>{const out=[];try{const tx=database.transaction(STORE,"readonly");const req=tx.objectStore(STORE).index("date").openCursor(null,"prev");req.onsuccess=()=>{const cursor=req.result;if(cursor&&out.length<limit){out.push(cursor.value);cursor.continue();}else resolve(out.reverse());};req.onerror=()=>resolve([]);}catch{resolve([]);}});
-    }
+    async function readAllDB(limit=500){const database=await openDB();if(!database)return [];return new Promise(resolve=>{const out=[];try{const tx=database.transaction(STORE,"readonly");const req=tx.objectStore(STORE).index("date").openCursor(null,"prev");req.onsuccess=()=>{const cursor=req.result;if(cursor&&out.length<limit){out.push(cursor.value);cursor.continue();}else resolve(out.reverse());};req.onerror=()=>resolve([]);}catch{resolve([]);}});}
     function addToCache(event){cache.push(event);if(cache.length>MAX_CACHE)cache=cache.slice(-MAX_CACHE);saveCache();}
     async function record(type,data={},meta={}){const event={id:`${Date.now()}-${Math.random().toString(36).slice(2,9)}`,type,date:new Date().toISOString(),data:compact(data),meta:compact(meta,1500)};addToCache(event);writeDB(event);return event;}
     function allCached(){return cache.slice();}
     function filter(type){return cache.filter(e=>e.type===type);}
     function recent(type,limit=20){const list=type?filter(type):cache;return list.slice(-limit);}
-    function deriveMistakes(){
-        const counts={};const coach=ASTRA.modules.coach;
-        (coach?.snapshot?.().mistakes||[]).forEach(m=>{const key=String(m.text||m).trim();if(key)counts[key]=(counts[key]||0)+1;});
-        cache.filter(e=>e.type==="trade"||e.type==="backtest_trade").forEach(e=>{const t=e.data||{};const raw=t.mistakes||t.mistake||t.ruleBreak||t.error||"";String(raw).split(/[,;|]/).map(x=>x.trim()).filter(Boolean).forEach(x=>counts[x]=(counts[x]||0)+1);});
-        return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([mistake,count])=>({mistake,count}));
-    }
-    function tradeSummary(){
-        const trades=[...filter("trade"),...filter("backtest_trade")].map(e=>e.data||{});const live=trades.filter(t=>t.source!=="backtest");const backtest=trades.filter(t=>t.source==="backtest");
-        const wins=live.filter(t=>String(t.result||"").toLowerCase()==="win"||Number(t.pnl)>0).length;const losses=live.filter(t=>String(t.result||"").toLowerCase()==="loss"||Number(t.pnl)<0).length;
-        return {total:trades.length,live:live.length,backtest:backtest.length,liveWins:wins,liveLosses:losses};
-    }
-    function contextForAI(limit=35){
-        const coach=ASTRA.modules.coach?.snapshot?.()||{};const market=ASTRA.modules.memory?.currentMarketSession?.();
-        const events=recent(null,limit).map(e=>({type:e.type,date:e.date,data:compact(e.data,1800)}));
-        return {persistentHistory:true,instruction:"Use this as ASTRA's long-term trading memory. Prefer saved facts over guesses. Use prior mistakes to warn Jay before a repeated pattern, but never invent a mistake or claim Jay repeated one unless the history supports it. Keep backtesting and live trading separate.",currentMarketSession:market,coachMemory:{mistakes:coach.mistakes||[],lessons:coach.lessons||[],strengths:coach.strengths||[],recentObservations:coach.observations||[],setupHistory:coach.setupHistory||[]},recurringMistakes:deriveMistakes(),tradeSummary:tradeSummary(),recentHistory:events};
-    }
+    function deriveMistakes(){const counts={};const coach=ASTRA.modules.coach;(coach?.snapshot?.().mistakes||[]).forEach(m=>{const key=String(m.text||m).trim();if(key)counts[key]=(counts[key]||0)+1;});cache.filter(e=>e.type==="trade"||e.type==="backtest_trade").forEach(e=>{const t=e.data||{};const raw=t.mistakes||t.mistake||t.ruleBreak||t.error||"";String(raw).split(/[,;|]/).map(x=>x.trim()).filter(Boolean).forEach(x=>counts[x]=(counts[x]||0)+1);});return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([mistake,count])=>({mistake,count}));}
+    function tradeSummary(){const trades=[...filter("trade"),...filter("backtest_trade")].map(e=>e.data||{});const live=trades.filter(t=>t.source!=="backtest");const backtest=trades.filter(t=>t.source==="backtest");const wins=live.filter(t=>String(t.result||"").toLowerCase()==="win"||Number(t.pnl)>0).length;const losses=live.filter(t=>String(t.result||"").toLowerCase()==="loss"||Number(t.pnl)<0).length;return {total:trades.length,live:live.length,backtest:backtest.length,liveWins:wins,liveLosses:losses};}
+    function contextForAI(limit=35){const coach=ASTRA.modules.coach?.snapshot?.()||{};const market=ASTRA.modules.memory?.currentMarketSession?.();const events=recent(null,limit).map(e=>({type:e.type,date:e.date,data:compact(e.data,1800)}));return {persistentHistory:true,instruction:"Use this as ASTRA's long-term trading memory. Prefer saved facts over guesses. Use prior mistakes to warn Jay before a repeated pattern, but never invent a mistake or claim Jay repeated one unless the history supports it. Keep backtesting and live trading separate.",currentMarketSession:market,coachMemory:{mistakes:coach.mistakes||[],lessons:coach.lessons||[],strengths:coach.strengths||[],recentObservations:coach.observations||[],setupHistory:coach.setupHistory||[]},recurringMistakes:deriveMistakes(),tradeSummary:tradeSummary(),recentHistory:events};}
     function status(){return {loaded:true,indexedDB:!!db,cachedEvents:cache.length,totalApprox:cache.length,lastEvent:cache[cache.length-1]?.date||null};}
-    async function migrateLegacy(){
-        const metaKey="migratedLegacyV1";try{if(JSON.parse(localStorage.getItem(META_KEY)||"{}")?.[metaKey])return;}catch{}
-        const journal=ASTRA.modules.journal?.getData?.();(journal?.trades||[]).forEach(t=>record("trade",{...t,legacy:true},{source:"journal-migration"}));
-        const demo=ASTRA.modules.demoAccount?.getData?.();(demo?.closedTrades||[]).forEach(t=>record("trade",{...t,legacy:true,source:t.source||"demo"},{source:"demo-migration"}));
-        const backtest=ASTRA.modules.backtesting?.getTrades?.();(backtest||[]).forEach(t=>record("backtest_trade",{...t,source:"backtest",legacy:true},{source:"backtest-migration"}));
-        const coach=ASTRA.modules.coach?.snapshot?.();if(coach){(coach.mistakes||[]).forEach(x=>record("mistake",x,{source:"coach-migration"}));(coach.lessons||[]).forEach(x=>record("lesson",x,{source:"coach-migration"}));(coach.strengths||[]).forEach(x=>record("strength",x,{source:"coach-migration"}));(coach.observations||[]).forEach(x=>record("screen_observation",x,{source:"coach-migration"}));}
-        try{const meta=JSON.parse(localStorage.getItem(META_KEY)||"{}");meta[metaKey]=true;localStorage.setItem(META_KEY,JSON.stringify(meta));}catch{}
-    }
-    function wrapMethods(){
-        const wrap=(moduleName,method,type,transform)=>{const module=ASTRA.modules[moduleName];if(!module||typeof module[method]!=="function"||module[`__historyWrapped_${method}`])return;const original=module[method].bind(module);module[method]=function(...args){let result;try{result=original(...args);}catch(error){record("error",{module:moduleName,method,error:String(error)});throw error;}Promise.resolve(result).then(value=>{try{record(type,transform?transform(args,value):{args,value});}catch{}});return result;};module[`__historyWrapped_${method}`]=true;};
-        wrap("journal","addTrade","trade",args=>({...safeClone(args[0]||{}),source:args[0]?.source||"journal"}));wrap("backtesting","record","backtest_trade",args=>({...safeClone(args[0]||{}),source:"backtest"}));wrap("demoAccount","recordClosedTrade","demo_trade",args=>({...safeClone(args[0]||{}),source:args[0]?.source||"demo"}));wrap("coach","addMistake","mistake",args=>({text:String(args[0]||"")}));wrap("coach","addLesson","lesson",args=>({text:String(args[0]||"")}));wrap("coach","addStrength","strength",args=>({text:String(args[0]||"")}));wrap("coach","addObservation","screen_observation",args=>safeClone(args[0]||{}));wrap("topDownCoach","reviewAnalysis","top_down_review",(args,value)=>({spokenAnalysis:String(args[0]||""),result:safeClone(value||{})}));
-        const ai=ASTRA.modules.ai;if(ai&&!ai.__historyWrappedAsk&&typeof ai.ask==="function"){const original=ai.ask.bind(ai);ai.ask=async function(message,extra={}){const started=Date.now();await record("conversation",{role:"user",message:String(message||""),extra:compact(extra,1200)});const result=await original(message,extra);await record("conversation",{role:"astra",message:String(result?.answer||result?.message||""),result:compact(result,1800),durationMs:Date.now()-started});return result;};ai.__historyWrappedAsk=true;}
-    }
+    async function migrateLegacy(){const metaKey="migratedLegacyV1";try{if(JSON.parse(localStorage.getItem(META_KEY)||"{}")?.[metaKey])return;}catch{}const journal=ASTRA.modules.journal?.getData?.();(journal?.trades||[]).forEach(t=>record("trade",{...t,legacy:true},{source:"journal-migration"}));const demo=ASTRA.modules.demoAccount?.getData?.();(demo?.closedTrades||[]).forEach(t=>record("trade",{...t,legacy:true,source:t.source||"demo"},{source:"demo-migration"}));const backtest=ASTRA.modules.backtesting?.getTrades?.();(backtest||[]).forEach(t=>record("backtest_trade",{...t,source:"backtest",legacy:true},{source:"backtest-migration"}));const coach=ASTRA.modules.coach?.snapshot?.();if(coach){(coach.mistakes||[]).forEach(x=>record("mistake",x,{source:"coach-migration"}));(coach.lessons||[]).forEach(x=>record("lesson",x,{source:"coach-migration"}));(coach.strengths||[]).forEach(x=>record("strength",x,{source:"coach-migration"}));(coach.observations||[]).forEach(x=>record("screen_observation",x,{source:"coach-migration"}));}try{const meta=JSON.parse(localStorage.getItem(META_KEY)||"{}");meta[metaKey]=true;localStorage.setItem(META_KEY,JSON.stringify(meta));}catch{}}
+    function wrapMethods(){const wrap=(moduleName,method,type,transform)=>{const module=ASTRA.modules[moduleName];if(!module||typeof module[method]!=="function"||module[`__historyWrapped_${method}`])return;const original=module[method].bind(module);module[method]=function(...args){let result;try{result=original(...args);}catch(error){record("error",{module:moduleName,method,error:String(error)});throw error;}Promise.resolve(result).then(value=>{try{record(type,transform?transform(args,value):{args,value});}catch{}});return result;};module[`__historyWrapped_${method}`]=true;};wrap("journal","addTrade","trade",args=>({...safeClone(args[0]||{}),source:args[0]?.source||"journal"}));wrap("backtesting","record","backtest_trade",args=>({...safeClone(args[0]||{}),source:"backtest"}));wrap("demoAccount","recordClosedTrade","demo_trade",args=>({...safeClone(args[0]||{}),source:args[0]?.source||"demo"}));wrap("coach","addMistake","mistake",args=>({text:String(args[0]||"")}));wrap("coach","addLesson","lesson",args=>({text:String(args[0]||"")}));wrap("coach","addStrength","strength",args=>({text:String(args[0]||"")}));wrap("coach","addObservation","screen_observation",args=>safeClone(args[0]||{}));wrap("topDownCoach","reviewAnalysis","top_down_review",(args,value)=>({spokenAnalysis:String(args[0]||""),result:safeClone(value||{})}));const ai=ASTRA.modules.ai;if(ai&&!ai.__historyWrappedAsk&&typeof ai.ask==="function"){const original=ai.ask.bind(ai);ai.ask=async function(message,extra={}){const started=Date.now();await record("conversation",{role:"user",message:String(message||""),extra:compact(extra,1200)});const result=await original(message,extra);await record("conversation",{role:"astra",message:String(result?.answer||result?.message||""),result:compact(result,1800),durationMs:Date.now()-started});return result;};ai.__historyWrappedAsk=true;}}
     function historySummary(){const s=status(),t=tradeSummary(),m=deriveMistakes();return `ASTRA history contains approximately ${s.cachedEvents} recent saved events. ${t.live} live/demo trades and ${t.backtest} backtest trades are indexed. ${m.length?`Top recurring mistake: ${m[0].mistake} (${m[0].count}).`:"No recurring mistakes are recorded yet."}`;}
     function showHistory(){AstraReply(historySummary());}
-    function showMistakes(){const m=deriveMistakes();AstraReply(m.length?`Recurring mistakes:<br>${m.map((x,i)=>`${i+1}. ${x.mistake} — ${x.count}`).join("<br>")}:"No mistakes are saved yet.");}
-    async function init(){if(initialized)return;initialized=true;loadCache();await openDB();const dbEvents=await readAllDB(MAX_CACHE);if(dbEvents.length){cache=dbEvents.slice(-MAX_CACHE);saveCache();}await migrateLegacy();wrapMethods();window.addEventListener("astra:history-ready",wrapMethods);ASTRA.commands.push({trigger:"show history",action:showHistory});ASTRA.commands.push({trigger:"history status",action:showHistory});ASTRA.commands.push({trigger:"show mistakes",action:showMistakes});console.log("ASTRA History + Long-Term Memory v1.1 Loaded");}
-    const api={name:"ASTRA History",version:"1.1",record,allCached,recent,contextForAI,status,init,historySummary,showHistory,showMistakes};ASTRA.registerModule("history",api);
-    if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});else init();return api;
+    function showMistakes(){const m=deriveMistakes();AstraReply(m.length?`Recurring mistakes:<br>${m.map((x,i)=>`${i+1}. ${x.mistake} — ${x.count}`).join("<br>")}`:"No mistakes are saved yet.");}
+    async function init(){if(initialized)return;initialized=true;loadCache();await openDB();const dbEvents=await readAllDB(MAX_CACHE);if(dbEvents.length){cache=dbEvents.slice(-MAX_CACHE);saveCache();}await migrateLegacy();wrapMethods();window.addEventListener("astra:history-ready",wrapMethods);ASTRA.commands.push({trigger:"show history",action:showHistory});ASTRA.commands.push({trigger:"history status",action:showHistory});ASTRA.commands.push({trigger:"show mistakes",action:showMistakes});console.log("ASTRA History + Long-Term Memory v1.2 Loaded");}
+    const api={name:"ASTRA History",version:"1.2",record,allCached,recent,contextForAI,status,init,historySummary,showHistory,showMistakes};ASTRA.registerModule("history",api);if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});else init();return api;
 })();
