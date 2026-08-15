@@ -57,18 +57,43 @@ const path = require("node:path");
     await page.waitForFunction(() => document.querySelectorAll("#output .astra-message").length >= 1);
 
     // Natural-language research must not require an exact command phrase.
-    const naturalResearch = "Astra, what's the red folder news for GBP?";
-    await page.evaluate(text => ASTRA.modules.command.process(text), naturalResearch);
-    await page.waitForFunction(() => !!ASTRA.modules.research);
-    const researchClassification = await page.evaluate(text => ASTRA.modules.research.classify(text), naturalResearch);
-    if (researchClassification.intent !== "web_research") throw new Error("Red-folder GBP question was not classified as research.");
-    if (researchClassification.currency !== "GBP") throw new Error(`Expected GBP classification, got ${researchClassification.currency}.`);
-    if (!researchClassification.highImpact) throw new Error("Red-folder request was not classified as high impact.");
+    const researchExamples = [
+      {
+        text: "Astra, what's the red folder news for GBP?",
+        currency: "GBP",
+        requestType: "calendar_and_news",
+        highImpact: true
+      },
+      {
+        text: "What are the news coming out for the pound?",
+        currency: "GBP",
+        requestType: "calendar_and_news"
+      },
+      {
+        text: "Is there anything important for sterling this week?",
+        currency: "GBP",
+        requestType: "research"
+      },
+      {
+        text: "Why is GBP moving today?",
+        currency: "GBP",
+        requestType: "market_drivers"
+      }
+    ];
 
-    const naturalResearchTwo = "What are the news coming out for the pound?";
-    const secondClassification = await page.evaluate(text => ASTRA.modules.research.classify(text), naturalResearchTwo);
-    if (secondClassification.intent !== "web_research") throw new Error("Conversational GBP news question was not classified as research.");
-    if (secondClassification.currency !== "GBP") throw new Error(`Expected GBP for pound alias, got ${secondClassification.currency}.`);
+    for (const example of researchExamples) {
+      await page.evaluate(text => ASTRA.modules.command.process(text), example.text);
+      await page.waitForFunction(() => !!ASTRA.modules.research);
+      const classification = await page.evaluate(text => ASTRA.modules.research.classify(text), example.text);
+      if (classification.intent !== "web_research") throw new Error(`Natural research was not classified: ${example.text}`);
+      if (classification.currency !== example.currency) throw new Error(`Expected ${example.currency} for: ${example.text}; got ${classification.currency}.`);
+      if (classification.requestType !== example.requestType) throw new Error(`Expected ${example.requestType} for: ${example.text}; got ${classification.requestType}.`);
+      if (example.highImpact && !classification.highImpact) throw new Error(`High-impact request was not detected: ${example.text}`);
+    }
+
+    const researchStatus = await page.evaluate(() => ASTRA.modules.research.status());
+    if (!researchStatus.naturalLanguage) throw new Error("Research module is not marked natural-language capable.");
+    if (!researchStatus.sourceGroundingRequired) throw new Error("Research module must require source grounding.");
 
     const loadedModules = await page.evaluate(() => Object.keys(ASTRA.modules || {}));
     if (!loadedModules.includes("research")) throw new Error("Research module was not loaded after a natural research request.");
