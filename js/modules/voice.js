@@ -1,11 +1,12 @@
 /* =========================================
-   ASTRA VOICE / CONVERSATION MODULE v1.3
-   Natural voice selection + interruption
+   ASTRA VOICE / CONVERSATION MODULE v1.4
+   Natural voice selection + interruption + feedback-loop protection
 ========================================= */
 const VoiceModule=(()=>{
     const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
     let recognition=null,listening=false,speaking=false,restarting=false,voices=[];
     let restartTimer=null,selectedVoiceName=localStorage.getItem("ASTRA_VOICE_NAME")||"";
+    let ignoreRecognitionUntil=0;
 
     function supported(){return !!Recognition;}
     function loadVoices(){
@@ -26,6 +27,7 @@ const VoiceModule=(()=>{
         if(window.speechSynthesis)window.speechSynthesis.cancel();
         if(recognition){try{recognition.stop();}catch(error){}}
         speaking=false;
+        ignoreRecognitionUntil=Date.now()+1200;
         clearRestart();
     }
     function scheduleRestart(delay=250){
@@ -50,8 +52,17 @@ const VoiceModule=(()=>{
             utterance.pitch=1.02;
             utterance.volume=1;
             utterance.onstart=()=>{speaking=true;};
-            utterance.onend=()=>{speaking=false;if(listening&&recognition)scheduleRestart(180);};
-            utterance.onerror=()=>{speaking=false;if(listening&&recognition)scheduleRestart(180);};
+            utterance.onend=()=>{
+                speaking=false;
+                // Ignore microphone tail/echo from ASTRA's own speech.
+                ignoreRecognitionUntil=Date.now()+1200;
+                if(listening&&recognition)scheduleRestart(1000);
+            };
+            utterance.onerror=()=>{
+                speaking=false;
+                ignoreRecognitionUntil=Date.now()+1200;
+                if(listening&&recognition)scheduleRestart(1000);
+            };
             window.speechSynthesis.speak(utterance);
             return true;
         }catch(error){console.error("ASTRA voice output:",error);speaking=false;return false;}
@@ -60,6 +71,7 @@ const VoiceModule=(()=>{
         if(!supported()){AstraReply("Voice recognition is not supported by this browser.");return false;}
         if(listening)return true;
         loadVoices();clearRestart();
+        ignoreRecognitionUntil=Date.now()+1200;
         recognition=new Recognition();
         recognition.continuous=true;
         recognition.interimResults=true;
@@ -68,14 +80,15 @@ const VoiceModule=(()=>{
             for(let i=event.resultIndex;i<event.results.length;i++){
                 const result=event.results[i];
                 const text=result[0].transcript.trim();
-                if(speaking&&text){stopSpeaking();}
+                // Never feed ASTRA's own spoken output back into the command router.
+                if(speaking||Date.now()<ignoreRecognitionUntil)continue;
                 if(!result.isFinal||!text)continue;
                 ASTRA.modules.response?.user?.(text);
                 ASTRA.modules.command?.process?.(text);
             }
         };
         recognition.onerror=(event)=>{console.warn("ASTRA voice recognition:",event.error);if(listening&&event.error!=="not-allowed"&&event.error!=="service-not-allowed")scheduleRestart(350);};
-        recognition.onend=()=>{if(listening&&!speaking)scheduleRestart(180);};
+        recognition.onend=()=>{if(listening&&!speaking)scheduleRestart(1000);};
         try{listening=true;recognition.start();AstraReply("Voice is ready.");return true;}
         catch(error){console.error("ASTRA voice start:",error);listening=false;recognition=null;return false;}
     }
@@ -83,12 +96,12 @@ const VoiceModule=(()=>{
     function toggle(){return listening?(stop(),false):start();}
     function setVoice(name){loadVoices();const voice=voices.find(v=>v.name===name);if(!voice)return false;selectedVoiceName=voice.name;localStorage.setItem("ASTRA_VOICE_NAME",voice.name);return true;}
     function getVoices(){loadVoices();return voices.filter(v=>/^en(-|_)/i.test(v.lang)).map(v=>({name:v.name,lang:v.lang,default:v.default}));}
-    function status(){return {supported:supported(),listening,speaking,restarting,voice:pickVoice()?.name||null};}
+    function status(){return {supported:supported(),listening,speaking,restarting,voice:pickVoice()?.name||null,ignoreRecognitionUntil};}
     if(window.speechSynthesis)window.speechSynthesis.onvoiceschanged=loadVoices;
-    return {name:"Voice Conversation",version:"1.3",supported,start,stop,toggle,speak,stopSpeaking,setVoice,getVoices,status};
+    return {name:"Voice Conversation",version:"1.4",supported,start,stop,toggle,speak,stopSpeaking,setVoice,getVoices,status};
 })();
 ASTRA.registerModule("voice",VoiceModule);
 ASTRA.commands.push({trigger:"start voice",action:()=>VoiceModule.start()});
 ASTRA.commands.push({trigger:"stop voice",action:()=>VoiceModule.stop()});
 ASTRA.commands.push({trigger:"voice status",action:()=>AstraReply(JSON.stringify(VoiceModule.status()))});
-console.log("ASTRA Voice Conversation v1.3 Loaded");
+console.log("ASTRA Voice Conversation v1.4 Loaded");
