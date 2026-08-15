@@ -1,4 +1,4 @@
-/* ASTRA UI FIX v1.1 — resilient controller + Coach Engine loader */
+/* ASTRA UI FIX v1.2 — resilient controller + Coach Engine loader + conversation recovery */
 window.addEventListener("DOMContentLoaded",()=>{
   const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const loadCoachEngine=()=>new Promise(resolve=>{
@@ -34,5 +34,54 @@ window.addEventListener("DOMContentLoaded",()=>{
     $("#performanceTabContent")&&render("performance","overview");
   }
   document.addEventListener("click",e=>{const action=e.target.closest("[data-ui-action]");if(!action)return;const a=action.dataset.uiAction;if(a==="new-trade")showView("journal");if(a==="analyze")ASTRA?.modules?.screen?.analyze?.();if(a==="backtest")ASTRA?.modules?.naturalIntent?.handle?.("open backtest");if(a==="demo"){const m=$("#demoMessage");if(m)m.textContent="Demo account area is ready. Connect a demo feed when you choose one.";}});
-  bind();console.log("ASTRA UI FIX v1.1 — coach-aware module views active");
+  bind();console.log("ASTRA UI FIX v1.2 — coach-aware module views active");
+});
+
+/* ASTRA CONVERSATION RECOVERY v1.0
+   Keeps typed and voice conversation alive if the legacy UI bridge fails to parse. */
+window.addEventListener("DOMContentLoaded",()=>{
+  if(window.__ASTRA_CONVERSATION_RECOVERY_BOUND)return;
+  window.__ASTRA_CONVERSATION_RECOVERY_BOUND=true;
+
+  const input=document.getElementById("commandInput");
+  const sendBtn=document.getElementById("sendBtn");
+  const voiceBtn=document.getElementById("voiceBtn");
+  if(!input)return;
+
+  const send=async()=>{
+    const command=input.value.trim();
+    if(!command)return;
+    input.value="";
+
+    try{ASTRA.modules.response?.user?.(command);}catch(error){console.warn("ASTRA recovery user render:",error);}
+
+    try{
+      if(ASTRA.modules.command?.process){
+        ASTRA.modules.command.process(command);
+        return;
+      }
+      if(ASTRA.modules.naturalIntent?.handle?.(command))return;
+      if(ASTRA.modules.ai?.ask){await ASTRA.modules.ai.ask(command);return;}
+      if(ASTRA.modules.aiGateway?.ask){await ASTRA.modules.aiGateway.ask(command);return;}
+      AstraReply("ASTRA's conversation engine is not loaded yet. Please refresh once.");
+    }catch(error){
+      console.error("ASTRA conversation recovery:",error);
+      try{
+        if(ASTRA.modules.ai?.ask){await ASTRA.modules.ai.ask(command);return;}
+      }catch(fallbackError){console.error("ASTRA AI fallback:",fallbackError);}
+      try{AstraReply("I couldn't process that message. Please try again.");}catch(replyError){console.error("ASTRA recovery reply:",replyError);}
+    }
+  };
+
+  sendBtn?.addEventListener("click",send);
+  input.addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();send();}});
+
+  voiceBtn?.addEventListener("click",()=>{
+    const voice=ASTRA.modules.voice;
+    if(!voice){AstraReply("Voice module is not loaded yet. Please refresh once.");return;}
+    const active=voice.toggle?.();
+    voiceBtn.classList.toggle("active",!!active);
+  });
+
+  console.log("ASTRA Conversation Recovery v1.0 Loaded");
 });
