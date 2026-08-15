@@ -1,26 +1,131 @@
-/* ASTRA UI FIX — dashboard controls + core conversation + screen + coach */
-(function bootCoachAI(){
-  const load=src=>new Promise(resolve=>{const s=document.createElement("script");s.src=src;s.onload=resolve;s.onerror=resolve;document.head.appendChild(s);});
-  (async()=>{if(!window.ASTRA?.modules?.coach)await load("js/modules/coachEngine.js?v=1.2");await load("js/core/aiGateway.js?v=2.8");await load("js/modules/proactiveMarketObserver.js?v=2.2");console.log("ASTRA Coach + AI + Observer refreshed");})();
-})();
-window.addEventListener("DOMContentLoaded",()=>{
-  const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
-  const go=name=>window.ASTRAShowView?.(name);
-  const says=$(".astra-says"),dock=$(".conversation-dock"),output=$("#output"),command=dock?.querySelector(".command-area");
-  if(says&&output&&command){dock.remove();$("#dashboardMessage")?.remove();says.classList.add("conversation-panel");says.appendChild(output);says.appendChild(command);const title=says.querySelector(".panel-title");if(title)title.textContent="ASTRA SAYS";says.querySelector(".voice-wave")?.remove();says.querySelector(".mini-core")?.remove();output.classList.add("core-conversation");command.classList.add("core-command-area");const input=$("#commandInput");if(input)input.placeholder="Type a message to ASTRA...";}
-  const actions=$(".quick-actions");
-  if(actions&&!$("#screenBtn",actions)){const screen=document.createElement("button");screen.id="screenBtn";screen.type="button";screen.textContent="▣ SCREEN";screen.title="Share your screen with ASTRA";actions.insertBefore(screen,$("#watchBtn",actions)||null);screen.addEventListener("click",async()=>{try{const state=ASTRA.modules.screen?.status?.();if(state?.sharing){ASTRA.modules.screen.stopCapture?.();screen.classList.remove("active");AstraReply("Screen sharing stopped.");}else{const result=await ASTRA.modules.screen?.startCapture?.();if(result!==false){screen.classList.add("active");AstraReply("Screen sharing is active. I can now inspect the shared screen when you ask me to.");}}}catch(error){console.error("ASTRA screen button",error);AstraReply("I couldn't start screen sharing. Please allow screen access when your browser asks.");}});}
-  const commandArea=$(".core-command-area")||$(".command-area");
-  if(commandArea&&!$(".chat-mic",commandArea)){const mic=document.createElement("button");mic.type="button";mic.className="chat-mic";mic.title="Talk to ASTRA";mic.setAttribute("aria-label","Talk to ASTRA");mic.textContent="🎙";const send=$("#sendBtn",commandArea);if(send)commandArea.insertBefore(mic,send);else commandArea.appendChild(mic);mic.addEventListener("click",()=>{const voice=ASTRA?.modules?.voice;if(!voice)return;const state=voice.status?.();if(state?.listening){voice.stop?.();mic.classList.remove("active");}else{voice.start?.();mic.classList.add("active");}});}
-  if(!$("#astraConversationStyle")){const style=document.createElement("style");style.id="astraConversationStyle";style.textContent=`
-    .conversation-panel{display:flex!important;flex-direction:column;min-height:0;position:fixed!important;left:calc(210px + 50%);bottom:22px;transform:translateX(-50%);width:min(900px,calc(100vw - 270px));height:190px;min-height:190px;z-index:40;padding:14px 18px!important;background:linear-gradient(145deg,rgba(4,22,37,.98),rgba(1,10,19,.98))!important;border-color:rgba(0,194,255,.32)!important;box-shadow:0 18px 50px rgba(0,0,0,.52),0 0 30px rgba(0,160,230,.11),inset 0 1px rgba(255,255,255,.04)!important}
-    .core-conversation{display:flex!important;flex-direction:column;gap:9px;height:112px;min-height:112px;flex:1;margin-top:9px;overflow-y:auto;overflow-x:hidden;padding:2px 7px 2px 0;scrollbar-width:thin}.core-conversation .astra-message,.core-conversation .user-message{margin:0;padding:9px 11px;border-radius:8px;background:rgba(3,27,43,.80);border:1px solid rgba(0,174,235,.16);font-size:11px;line-height:1.48}.core-conversation .user-message{background:rgba(25,18,52,.54);border-color:rgba(139,126,255,.20)}.core-conversation .message-speaker{font-size:8px;letter-spacing:1px;color:#62dfff;font-weight:700;margin-bottom:3px}.core-conversation .user-message .message-speaker{color:#a996ff}.core-conversation .message-body p{margin:0 0 5px}.core-conversation .message-body p:last-child{margin-bottom:0}
-    .core-command-area{display:flex!important;gap:8px;margin-top:10px;align-items:center}.core-command-area #commandInput{flex:1;min-width:0;height:40px;border:1px solid rgba(0,194,255,.36);background:rgba(1,12,21,.96);color:#e6faff;border-radius:7px;padding:0 13px;font-size:11px;outline:none}.core-command-area #commandInput:focus{border-color:rgba(0,210,255,.68);box-shadow:0 0 14px rgba(0,180,255,.11)}.core-command-area #sendBtn,.core-command-area .chat-mic{height:40px;border:1px solid rgba(0,194,255,.42);background:#05243a;color:#78e2ff;border-radius:7px;font-size:9px;font-weight:700;cursor:pointer}.core-command-area #sendBtn{padding:0 16px}.core-command-area .chat-mic{width:44px;padding:0;font-size:16px}.conversation-panel .hidden-control{display:none!important}.conversation-panel .command-area{width:100%}.quick-actions #screenBtn{cursor:pointer}.quick-actions #screenBtn.active{box-shadow:0 0 16px rgba(0,190,255,.35);border-color:rgba(0,210,255,.8)}
-    @media (max-width:900px){.conversation-panel{left:50%;width:calc(100vw - 230px);height:180px;min-height:180px;bottom:14px}.core-conversation{height:104px;min-height:104px}}
-    @media (max-width:700px){.conversation-panel{left:50%;width:calc(100vw - 28px);height:176px;min-height:176px;bottom:10px}.core-conversation{height:98px;min-height:98px}.core-command-area #commandInput{font-size:11px}}
-  `;document.head.appendChild(style);}
-  const input=$("#commandInput"),sendBtn=$("#sendBtn");
-  if(input&&sendBtn&&!sendBtn.dataset.chatBound){sendBtn.dataset.chatBound="true";const send=()=>{const text=input.value.trim();if(!text)return;ASTRA.modules.coach?.inferState?.(text);ASTRA.modules.coach?.syncFromMessage?.(text);const mistake=ASTRA.modules.coach?.inferMistake?.(text);const guard=ASTRA.modules.coach?.guardrail?.(text);ASTRA.modules.response?.user?.(text);input.value="";input.focus();const screenActive=!!ASTRA.modules.screen?.sharing;const asksAboutScreen=/(screen|share|shared|see|look|watch|showing|tab|chart)/i.test(text);if(screenActive&&asksAboutScreen&&ASTRA.modules.proactiveMarketObserver?.askAboutCurrentScreen){ASTRA.modules.proactiveMarketObserver.askAboutCurrentScreen(text);return;}if(ASTRA.modules.command?.process){try{ASTRA.modules.command.process(text)}catch(error){console.error("ASTRA command error",error);AstraReply("I hit an error processing that message: "+error.message)}}else if(ASTRA.modules.ai?.ask)ASTRA.modules.ai.ask(text);else AstraReply("ASTRA's conversation engine is still loading. Please try again in a moment.");if(mistake)ASTRA.modules.coach?.addObservation?.({type:"mistake",text:mistake});if(guard?.blocked&&guard.warnings?.length)ASTRA.modules.coach?.addObservation?.({type:"guardrail",warnings:guard.warnings});};sendBtn.addEventListener("click",send);input.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}})}
-  document.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;if(b.classList.contains("mini-link"))go("dashboard");if(b.textContent.includes("VIEW ALL TRADES"))go("journal");if(b.textContent.includes("NEW ENTRY"))go("journal");if(b.textContent.includes("VIEW FULL PLAN"))go("dashboard");if(b.textContent.includes("NEW TRADE")){ASTRA.modules.coach?.setState?.("live_trading",{source:"new-trade-button"});AstraReply("Before we enter, check the setup against your rules.");}if(b.classList.contains("voice-command"))ASTRA?.modules?.voice?.toggle?.();if(b.closest(".range-tabs")){const group=b.closest(".range-tabs");$$('span,b',group).forEach(x=>x.classList.remove("active"));b.classList.add("active")}if(b.classList.contains("toggle"))b.classList.toggle("on")});
-  console.log("ASTRA BUTTON FIX — controls + core conversation + live screen vision + coach engine");
+/* ASTRA BUTTON FIX v2.0
+   Dashboard controls only.
+   Conversation submission is owned by runtimeIntegrity.js.
+   Module loading is owned by index.html.
+*/
+window.addEventListener("DOMContentLoaded", () => {
+    const $ = (selector, root = document) => root.querySelector(selector);
+    const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+    const go = name => window.ASTRAShowView?.(name);
+
+    const actions = $(".quick-actions");
+    if (actions && !$("#screenBtn", actions)) {
+        const screen = document.createElement("button");
+        screen.id = "screenBtn";
+        screen.type = "button";
+        screen.textContent = "▣ SCREEN";
+        screen.title = "Share your screen with ASTRA";
+        actions.insertBefore(screen, $("#watchBtn", actions) || null);
+
+        screen.addEventListener("click", async () => {
+            try {
+                const state = ASTRA.modules.screen?.status?.();
+                if (state?.sharing) {
+                    ASTRA.modules.screen.stopCapture?.();
+                    screen.classList.remove("active");
+                    AstraReply("Screen sharing stopped.");
+                    return;
+                }
+
+                const result = await ASTRA.modules.screen?.startCapture?.();
+                if (result !== false) {
+                    screen.classList.add("active");
+                    AstraReply("Screen sharing is active. I can inspect the shared screen when you ask me to.");
+                }
+            } catch (error) {
+                console.error("ASTRA screen button", error);
+                AstraReply("I couldn't start screen sharing. Please allow screen access when your browser asks.");
+            }
+        });
+    }
+
+    const commandArea = $(".core-command-area") || $(".command-area");
+    if (commandArea && !$(".chat-mic", commandArea)) {
+        const mic = document.createElement("button");
+        mic.type = "button";
+        mic.className = "chat-mic";
+        mic.title = "Talk to ASTRA";
+        mic.setAttribute("aria-label", "Talk to ASTRA");
+        mic.textContent = "🎙";
+
+        const send = $("#sendBtn", commandArea);
+        if (send) commandArea.insertBefore(mic, send);
+        else commandArea.appendChild(mic);
+
+        mic.addEventListener("click", () => {
+            const voice = ASTRA?.modules?.voice;
+            if (!voice) {
+                AstraReply("Voice module is not loaded yet.");
+                return;
+            }
+
+            const state = voice.status?.();
+            if (state?.listening) {
+                voice.stop?.();
+                mic.classList.remove("active");
+            } else {
+                voice.start?.();
+                mic.classList.add("active");
+            }
+        });
+    }
+
+    if (!$("#astraConversationStyle")) {
+        const style = document.createElement("style");
+        style.id = "astraConversationStyle";
+        style.textContent = `
+            .chat-mic {
+                width: 44px;
+                height: 40px;
+                padding: 0;
+                border: 1px solid rgba(0,194,255,.42);
+                background: #05243a;
+                color: #78e2ff;
+                border-radius: 7px;
+                font-size: 16px;
+                cursor: pointer;
+            }
+            .chat-mic.active {
+                box-shadow: 0 0 16px rgba(0,190,255,.35);
+                border-color: rgba(0,210,255,.8);
+            }
+            .quick-actions #screenBtn { cursor: pointer; }
+            .quick-actions #screenBtn.active {
+                box-shadow: 0 0 16px rgba(0,190,255,.35);
+                border-color: rgba(0,210,255,.8);
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    document.addEventListener("click", event => {
+        const button = event.target.closest("button");
+        if (!button) return;
+
+        if (button.classList.contains("mini-link")) go("dashboard");
+        if (button.textContent.includes("VIEW ALL TRADES")) go("journal");
+        if (button.textContent.includes("NEW ENTRY")) go("journal");
+        if (button.textContent.includes("VIEW FULL PLAN")) go("dashboard");
+
+        if (button.textContent.includes("NEW TRADE")) {
+            ASTRA.modules.coach?.setState?.("LIVE_TRADING", "new-trade-button");
+            AstraReply("Before we enter, check the setup against your rules.");
+        }
+
+        if (button.classList.contains("voice-command")) {
+            ASTRA?.modules?.voice?.toggle?.();
+        }
+
+        if (button.closest(".range-tabs")) {
+            const group = button.closest(".range-tabs");
+            $$("span,b", group).forEach(item => item.classList.remove("active"));
+            button.classList.add("active");
+        }
+
+        if (button.classList.contains("toggle")) {
+            button.classList.toggle("on");
+        }
+    });
+
+    console.log("ASTRA Button Fix v2.0 Loaded — controls only");
 });
