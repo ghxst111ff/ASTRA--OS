@@ -1,6 +1,7 @@
 /* =========================================
-   ASTRA TOP-DOWN COACH v1.2
+   ASTRA TOP-DOWN COACH v1.3
    Guided timeframe-by-timeframe chart review
+   Wait -> listen -> inspect -> grade -> advance
 ========================================= */
 const TopDownCoach = (()=>{
     const KEY="ASTRA_TOP_DOWN_SESSION";
@@ -11,41 +12,102 @@ const TopDownCoach = (()=>{
     function current(){return state.timeframes[state.index]||null;}
     function normalize(text){return String(text||"").trim().toUpperCase();}
     function isFinished(text){return /\b(i'?m|im|i am|we'?re|we are)\s+(finished|done)\b|\bfinished\s+(analyzing|analysis|with)\b|\bdone\s+(analyzing|with|here)\b|\b(analysis|analyzing)\s+(is\s+)?done\b|\bthat'?s\s+it\b/i.test(String(text||""));}
-    function start(timeframes){if(Array.isArray(timeframes)&&timeframes.length)state.timeframes=timeframes.map(normalize).filter(Boolean);state.active=true;state.index=0;state.completed=[];state.awaitingReview=false;state.currentTranscript="";state.lastAnalysis="";state.lastReview=null;ASTRA.modules.coach?.stopObserver?.();save();return snapshot();}
+    function start(timeframes){
+        if(Array.isArray(timeframes)&&timeframes.length)state.timeframes=timeframes.map(normalize).filter(Boolean);
+        state.active=true;state.index=0;state.completed=[];state.awaitingReview=false;state.currentTranscript="";state.lastAnalysis="";state.lastReview=null;
+        ASTRA.modules.coach?.stopObserver?.();save();return snapshot();
+    }
     function stop(){state.active=false;state.awaitingReview=false;save();return snapshot();}
     function snapshot(){return JSON.parse(JSON.stringify({...state,currentTimeframe:current()}));}
     function beginIfNeeded(){if(!state.active)start();return snapshot();}
     function appendAnalysis(text){const value=String(text||"").trim();if(!value)return;state.currentTranscript=[state.currentTranscript,value].filter(Boolean).join("\n");save();}
+
     async function reviewAnalysis(analysisText=""){
-        beginIfNeeded();if(state.awaitingReview)return {handled:true,waiting:true,state:snapshot()};
-        const tf=current();if(!tf)return {handled:true,done:true,state:snapshot()};
+        beginIfNeeded();
+        if(state.awaitingReview)return {handled:true,waiting:true,state:snapshot()};
+        const tf=current();
+        if(!tf)return {handled:true,done:true,state:snapshot()};
         const screen=ASTRA.modules.screen;
-        if(!screen?.sharing)return {handled:true,blocked:true,reason:"SCREEN_NOT_SHARED",message:`Share your screen so I can inspect the ${tf} chart before I grade the analysis.`};
-        const frame=screen.getFrame?.({maxWidth:1440,quality:0.6});if(!frame)return {handled:true,blocked:true,reason:"NO_FRAME",message:`I can't see a usable ${tf} frame yet. Keep the chart visible and try again.`};
-        state.awaitingReview=true;state.lastAnalysis=state.currentTranscript||String(analysisText||"");save();
+        if(!screen?.sharing)return {handled:true,blocked:true,reason:"SCREEN_NOT_SHARED",message:`Share your screen so I can inspect the ${tf} chart before I grade what you said.`};
+        const frame=screen.getFrame?.({maxWidth:1440,quality:0.6});
+        if(!frame)return {handled:true,blocked:true,reason:"NO_FRAME",message:`I can't see a usable ${tf} frame yet. Keep the chart visible and try again.`};
+
+        state.awaitingReview=true;
+        state.lastAnalysis=state.currentTranscript||String(analysisText||"");
+        save();
+
         const system=ASTRA.modules.trading?.strategy||{};
-        const prompt=`Review Jay's ${tf} top-down analysis now. This is a checkpoint, not general market commentary.\n\nEverything Jay explained during this ${tf} checkpoint:\n${state.lastAnalysis||"(No spoken explanation was captured.)"}\n\nInspect the attached screen directly. Compare what Jay said with what is visibly marked on the chart and with Jay's Fractal Market Delivery System. Required review priorities for this timeframe: higher-timeframe context/objective, supply/demand where relevant, liquidity, market structure, and whether his explanation matches the visible chart. Do not invent details that are not visible.\n\nIf Jay is correct enough to move forward, return JSON only: {"status":"CORRECT","feedback":"Correct. Let's move on to the next timeframe.","missingLiquidity":[],"reason":"brief reason"}\n\nIf Jay missed something important (especially liquidity), return JSON only and DO NOT advance: {"status":"CORRECTION","feedback":"brief natural correction","missingLiquidity":["brief item"],"reason":"brief reason"}\n\nIf the screen is unclear, return JSON only: {"status":"UNCLEAR","feedback":"brief request to clarify or adjust the chart","missingLiquidity":[],"reason":"brief reason"}\n\nKeep the feedback natural, short, and mentor-like. Do not lecture. Trading system rules: ${JSON.stringify(system.rules||[])}\n`;
+        const prompt=`Review Jay's ${tf} top-down analysis now. This is a checkpoint, not general market commentary.
+
+Jay has finished speaking. You must review EVERYTHING he said during this ${tf} checkpoint, not just the last statement.
+
+JAY'S COMPLETE ${tf} ANALYSIS:
+${state.lastAnalysis||"(No spoken explanation was captured.)"}
+
+Inspect the attached screen directly. Compare each meaningful claim Jay made with what is visibly shown on the chart and with Jay's Fractal Market Delivery System. Check, where relevant: higher-timeframe context/objective, supply/demand, liquidity, market structure, key highs/lows, bias, and whether the reasoning matches the visible chart. Do not invent details that are not visible.
+
+Your job is to grade his analysis before allowing the session to advance.
+
+Return JSON only in exactly this shape:
+{
+  "status":"CORRECT" or "CORRECTION" or "UNCLEAR",
+  "correctPoints":["each important thing Jay got right"],
+  "incorrectPoints":["each important thing Jay got wrong or interpreted incorrectly"],
+  "missingPoints":["important things Jay failed to mention"],
+  "missingLiquidity":["liquidity Jay missed, if any"],
+  "feedback":"short natural mentor feedback that summarizes what was right, what was wrong, and what was missing",
+  "reason":"brief grading reason"
+}
+
+Use CORRECT only when Jay's analysis is accurate enough to move to the next timeframe and there is no important omission that should be corrected first. Use CORRECTION when an important claim is wrong or an important item—especially liquidity—was missed. Use UNCLEAR only when the chart itself cannot be reliably inspected.
+
+If CORRECT, feedback should naturally say that the review is complete and that we are moving on, for example: "Correct. You covered the important points. Let's move on to the next timeframe."
+If CORRECTION, do not advance. Explain the specific missing/wrong points briefly so Jay can correct his thinking before continuing.
+
+Trading system rules: ${JSON.stringify(system.rules||[])}
+`;
         try{
             const result=await ASTRA.modules.ai.ask(prompt,{image:frame,vision:true,trading:true,topDownReview:true,skipTopDown:true,returnOnly:true,context:{topDownCheckpoint:true,timeframe:tf,spokenAnalysis:state.lastAnalysis,topDownState:snapshot()}});
-            const raw=String(result?.answer||"").trim();let parsed=null;try{parsed=JSON.parse(raw.replace(/^```json\s*/i,"").replace(/\s*```$/,""));}catch{}
-            if(!parsed)parsed={status:/\bcorrect\b/i.test(raw)&&!/missing|missed|unclear|can't|cannot/i.test(raw)?"CORRECT":"CORRECTION",feedback:raw||"Let's pause and check the chart again.",missingLiquidity:[],reason:"Review response was not structured."};
+            const raw=String(result?.answer||"").trim();
+            let parsed=null;
+            try{parsed=JSON.parse(raw.replace(/^```json\s*/i,"").replace(/\s*```$/,""));}catch{}
+            if(!parsed){
+                parsed={status:/\bcorrect\b/i.test(raw)&&!/missing|missed|unclear|can't|cannot/i.test(raw)?"CORRECT":"CORRECTION",correctPoints:[],incorrectPoints:[],missingPoints:[],missingLiquidity:[],feedback:raw||"Let's pause and check the chart again.",reason:"Review response was not structured."};
+            }
+            parsed.correctPoints=Array.isArray(parsed.correctPoints)?parsed.correctPoints:[];
+            parsed.incorrectPoints=Array.isArray(parsed.incorrectPoints)?parsed.incorrectPoints:[];
+            parsed.missingPoints=Array.isArray(parsed.missingPoints)?parsed.missingPoints:[];
+            parsed.missingLiquidity=Array.isArray(parsed.missingLiquidity)?parsed.missingLiquidity:[];
             state.lastReview={timeframe:tf,...parsed,date:new Date().toISOString()};
+
             if(parsed.status==="CORRECT"){
                 state.completed.push({timeframe:tf,analysis:state.lastAnalysis,review:parsed,date:new Date().toISOString()});
-                if(state.index<state.timeframes.length-1){state.index++;state.currentTranscript="";state.awaitingReview=false;save();return {handled:true,advanced:true,done:false,feedback:"Correct. Let's move on to the next timeframe.",review:parsed,state:snapshot()};}
-                state.awaitingReview=false;state.active=false;save();return {handled:true,advanced:false,done:true,feedback:"Correct. Top-down analysis is complete. Now we can move into the execution timeframe.",review:parsed,state:snapshot()};
+                if(state.index<state.timeframes.length-1){
+                    state.index++;state.currentTranscript="";state.awaitingReview=false;save();
+                    return {handled:true,advanced:true,done:false,feedback:parsed.feedback||"Correct. Let's move on to the next timeframe.",review:parsed,state:snapshot()};
+                }
+                state.awaitingReview=false;state.active=false;save();
+                return {handled:true,advanced:false,done:true,feedback:parsed.feedback||"Correct. Top-down analysis is complete. Now we can move into the execution timeframe.",review:parsed,state:snapshot()};
             }
-            state.awaitingReview=false;save();return {handled:true,advanced:false,done:false,feedback:parsed.feedback||"Let's correct that before we move on.",review:parsed,state:snapshot()};
-        }catch(error){state.awaitingReview=false;save();console.warn("ASTRA top-down review:",error);return {handled:true,error:true,message:"I couldn't complete the chart review. Keep this timeframe and try the checkpoint again."};}
+            state.awaitingReview=false;save();
+            return {handled:true,advanced:false,done:false,feedback:parsed.feedback||"Let's correct that before we move on.",review:parsed,state:snapshot()};
+        }catch(error){
+            state.awaitingReview=false;save();console.warn("ASTRA top-down review:",error);
+            return {handled:true,error:true,message:"I couldn't complete the chart review. Keep this timeframe and try the checkpoint again."};
+        }
     }
+
     async function handle(message){
         const text=String(message||"");
-        if(!state.active&&/\btop[- ]down|topdown\b/i.test(text)&&/\b(analy|start|begin|walk|go)\b/i.test(text)){start();return {handled:true,started:true,message:`We'll do this one timeframe at a time. Start on the ${current()} chart. Tell me what you see, and when you're finished, say so. I'll inspect the screen before we move on.`};}
+        if(!state.active&&/\btop[- ]down|topdown\b/i.test(text)&&/\b(analy|start|begin|walk|go|do|let'?s)\b/i.test(text)){
+            start();
+            return {handled:true,started:true,message:`Okay, we're ready. Start with the ${current()} chart. Take your time and tell me everything you see. I won't interrupt the analysis. When you're finished with the ${current()}, say you're finished. I'll go back over everything you said, check it against the chart, tell you what was right, what was wrong, and what you missed, then we'll move to the next timeframe.`};
+        }
         if(!state.active)return {handled:false};
         if(isFinished(text))return reviewAnalysis(text);
         appendAnalysis(text);
         return {handled:false,state:snapshot()};
     }
-    return {name:"ASTRA Top-Down Coach",version:"1.2",start,stop,snapshot,current,reviewAnalysis,handle};
+    return {name:"ASTRA Top-Down Coach",version:"1.3",start,stop,snapshot,current,reviewAnalysis,handle};
 })();
-ASTRA.registerModule("topDownCoach",TopDownCoach);console.log("ASTRA Top-Down Coach v1.2 Loaded");
+ASTRA.registerModule("topDownCoach",TopDownCoach);console.log("ASTRA Top-Down Coach v1.3 Loaded");
