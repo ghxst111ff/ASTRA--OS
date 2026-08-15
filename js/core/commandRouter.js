@@ -1,7 +1,7 @@
 /* =========================
    ASTRA COMMAND ROUTER
    Canonical conversation boundary
-   v4.1 — natural language first; exact commands are fallback/admin only
+   v4.2 — top-down checkpoint has exclusive conversational control
 ========================= */
 
 ASTRA.modules.command = {
@@ -23,8 +23,6 @@ ASTRA.modules.command = {
     },
 
     ensureResearchModule(rawCommand = ""){
-        // Research is a capability, not a command. Load it on first interaction
-        // so natural-language routing never depends on a keyword gate.
         if (ASTRA.modules.research) return true;
         if (ASTRA.__researchLoading) return false;
         ASTRA.__researchLoading = true;
@@ -49,14 +47,21 @@ ASTRA.modules.command = {
         const lowerCommand = rawCommand.toLowerCase().trim();
         if (!lowerCommand) return false;
 
-        // Load semantic capabilities first. The first message is replayed after
-        // the capability loads; the user never needs a special command.
+        // TOP-DOWN CHECKPOINT MODE OWNS THE CONVERSATION.
+        // While Jay is explaining a timeframe, his speech is captured only as
+        // analysis transcript. Nothing is routed to the AI, intent engine, or
+        // proactive observer until he explicitly says he is finished.
+        const topDown = ASTRA.modules.topDownCoach;
+        if (topDown?.snapshot?.().active) {
+            const result = topDown.handle(rawCommand);
+            if (result?.handled) return true;
+            return true;
+        }
+
         if (!this.ensureResearchModule(rawCommand)) return true;
 
-        // UNIVERSAL NATURAL LANGUAGE ROUTING — exact commands are not required.
         if (ASTRA.modules.naturalIntent?.handle?.(rawCommand)) return true;
 
-        // SYSTEM COMMANDS retained for administrative/build operations.
         if (lowerCommand === "astra version") { AstraReply(`ASTRA version ${ASTRA.version}`); return true; }
         if (lowerCommand === "astra modules") { AstraReply(`Loaded modules: ${Object.keys(ASTRA.modules).join(", ")}`); return true; }
 
@@ -80,7 +85,6 @@ ASTRA.modules.command = {
 
         if (lowerCommand.startsWith("activate ")) { ASTRA.modules.activator?.activate?.(rawCommand.replace(/^activate /i, "").trim()); return true; }
 
-        // ASTRA BUILD REQUESTS remain explicit because they mutate the system.
         if (lowerCommand.includes("add") || lowerCommand.includes("create") || lowerCommand.includes("build feature")) {
             const update = ASTRA.modules.updateAnalyzer?.analyze?.(rawCommand);
             if (!update) return false;
@@ -93,7 +97,6 @@ ASTRA.modules.command = {
             return true;
         }
 
-        // MODE COMMANDS remain explicit because they change system state.
         if (lowerCommand.includes("build mode")) { ASTRA.modules.mode?.setMode?.("BUILD"); return true; }
         if (lowerCommand.includes("backtesting mode") || lowerCommand.includes("backtest mode")) { ASTRA.modules.modeSwitcher?.switch?.("BACKTEST"); return true; }
         if (lowerCommand.includes("trading mode")) { ASTRA.modules.mode?.setMode?.("TRADING"); return true; }
@@ -104,11 +107,10 @@ ASTRA.modules.command = {
             const plan = ASTRA.modules.buildPlanner?.plan?.(update);
             const code = ASTRA.modules.codeGenerator?.generate?.(update);
             ASTRA.modules.updates?.register?.(update);
-            AstraReply(`\nBUILD PLAN\n\nFeature:\n${plan.feature}\n\nModule:\n${plan.module}\n\nPriority:\n${plan.priority}\n\nFiles:\n${plan.estimatedFiles.join(", ")}\n\nGenerated Files:\n${(code.files || []).map(file => file.name).join(", ")}\n\nStatus:\n${plan.status}\n\nType:\nApprove ${plan.feature}\n`);
+            AstraReply(`\nBUILD PLAN\n\nFeature:\n${plan.feature}\n\nModule:\n${plan.module}\n\nPriority:\n${plan.priority}\n\nFiles:\n${plan.estimatedFiles.join(", ")}\n\nGenerated Files:\n${(code.files || []).map(file => file.name).join(", ")}\n\nStatus:\n${plan.status}\n\nType:\nApprove ${update.feature}\n`);
             return true;
         }
 
-        // Open-ended conversation / AI fallback.
         if (ASTRA.modules.ai?.ask) { ASTRA.modules.ai.ask(rawCommand); return true; }
         AstraReply("I don't recognize that request yet.");
         return false;
@@ -116,4 +118,4 @@ ASTRA.modules.command = {
 };
 
 ASTRA.registerModule("command", ASTRA.modules.command);
-console.log("ASTRA Command Router v4.1 Loaded — natural conversation first; exact commands are fallback only");
+console.log("ASTRA Command Router v4.2 Loaded — top-down checkpoint mode is silent until completion");
