@@ -41,7 +41,7 @@ const path = require("node:path");
     if (await page.locator("#hiddenScreen").count() !== 0) throw new Error("Legacy hidden screen control should be removed.");
     if (await page.locator("#voiceBtn").count() !== 1) throw new Error("Expected exactly one dashboard VOICE COMMAND button.");
 
-    const modules = await page.evaluate(() => Object.keys(window.ASTRA?.modules || {}));
+    const modules = await page.evaluate(() => typeof ASTRA !== "undefined" ? Object.keys(ASTRA.modules || {}) : []);
     const requiredModules = ["mode", "moduleManager", "command", "response", "ai", "trading", "journal", "performance", "screen", "voice", "verification", "verifier", "installer", "backup"];
     const missingModules = requiredModules.filter(required => !modules.includes(required));
     if (missingModules.length) {
