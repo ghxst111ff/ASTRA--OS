@@ -22,7 +22,7 @@ ASTRA.modules.command = {
         return true;
     },
 
-    ensureResearchModule(){
+    ensureResearchModule(rawCommand = ""){
         // Research is a capability, not a command. Load it on first interaction
         // so natural-language routing never depends on a keyword gate.
         if (ASTRA.modules.research) return true;
@@ -33,10 +33,12 @@ ASTRA.modules.command = {
         script.onload = () => {
             ASTRA.__researchLoading = false;
             console.log("ASTRA research capability ready for natural-language routing.");
+            if (rawCommand) this.process(rawCommand);
         };
         script.onerror = () => {
             ASTRA.__researchLoading = false;
             console.error("ASTRA research module failed to load.");
+            if (rawCommand && ASTRA.modules.ai?.ask) ASTRA.modules.ai.ask(rawCommand);
         };
         document.head.appendChild(script);
         return false;
@@ -47,8 +49,8 @@ ASTRA.modules.command = {
         const lowerCommand = rawCommand.toLowerCase().trim();
         if (!lowerCommand) return false;
 
-        // Load semantic capabilities first. The first message waits for the
-        // capability to load; the next turn is routed by meaning, not syntax.
+        // Load semantic capabilities first. The first message is replayed after
+        // the capability loads; the user never needs a special command.
         if (!this.ensureResearchModule(rawCommand)) return true;
 
         // UNIVERSAL NATURAL LANGUAGE ROUTING — exact commands are not required.
