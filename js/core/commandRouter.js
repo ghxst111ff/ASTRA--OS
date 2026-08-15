@@ -11,20 +11,21 @@ ASTRA.modules.command = {
 
     showView(panel, open = true){
         const name = String(panel || "").toLowerCase().trim();
-
-        if (typeof window.ASTRAShowView === "function") {
-            window.ASTRAShowView(name);
-            return true;
-        }
-
-        const view =
-            document.getElementById(`view-${name}`) ||
-            document.getElementById(name);
+        const view = document.getElementById(`view-${name}`) || document.getElementById(name);
 
         if (!view) return false;
 
-        view.classList.toggle("active-view", open);
-        view.classList.toggle("active", open);
+        if (open) {
+            if (typeof window.ASTRAShowView === "function") {
+                window.ASTRAShowView(name);
+            } else {
+                document.querySelectorAll(".view").forEach(item => item.classList.remove("active-view"));
+                view.classList.add("active-view");
+            }
+        } else {
+            view.classList.remove("active-view", "active");
+        }
+
         return true;
     },
 
@@ -44,9 +45,7 @@ ASTRA.modules.command = {
         }
 
         if (lowerCommand === "astra modules") {
-            AstraReply(
-                `Loaded modules: ${Object.keys(ASTRA.modules).join(", ")}`
-            );
+            AstraReply(`Loaded modules: ${Object.keys(ASTRA.modules).join(", ")}`);
             return true;
         }
 
