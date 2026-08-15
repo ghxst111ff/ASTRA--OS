@@ -1,5 +1,5 @@
-/* ASTRA CONVERSATION LAYOUT v2.2
-   Hard-locked bottom chat surface.
+/* ASTRA CONVERSATION LAYOUT v2.3
+   Longer locked bottom chat surface.
    The chat is removed from normal document flow and its message history
    is the only scrolling region. New messages must never change page height.
 */
@@ -17,8 +17,8 @@ window.addEventListener("DOMContentLoaded", () => {
   output.classList.add("core-conversation");
   command.classList.add("core-command-area");
 
-  // Do not rely on the stylesheet alone. These values are deliberately
-  // applied inline so another layout rule cannot put the chat back into flow.
+  // Taller chat so the conversation can be read comfortably while remaining
+  // locked to the bottom of the viewport. Messages scroll inside the feed.
   Object.assign(dock.style, {
     display: "flex",
     flexDirection: "column",
@@ -29,9 +29,9 @@ window.addEventListener("DOMContentLoaded", () => {
     top: "auto",
     transform: "translateX(-50%)",
     width: "min(1120px, calc(100vw - 250px))",
-    height: "205px",
-    minHeight: "205px",
-    maxHeight: "205px",
+    height: "300px",
+    minHeight: "300px",
+    maxHeight: "300px",
     margin: "0",
     visibility: "visible",
     zIndex: "1000",
@@ -40,10 +40,8 @@ window.addEventListener("DOMContentLoaded", () => {
     contain: "layout paint"
   });
 
-  // Reserve visual space in the page without putting the chat itself in flow.
-  main.style.paddingBottom = "225px";
+  main.style.paddingBottom = "320px";
 
-  // Only this element scrolls. The dock and the page never grow with messages.
   Object.assign(output.style, {
     display: "block",
     flex: "1 1 auto",
@@ -100,5 +98,5 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  console.log("ASTRA CONVERSATION LAYOUT v2.2 — hard-locked, internally scrollable chat");
+  console.log("ASTRA CONVERSATION LAYOUT v2.3 — taller locked chat + internal scroll");
 });
