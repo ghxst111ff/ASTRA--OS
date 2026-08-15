@@ -11,10 +11,12 @@ const path = require("node:path");
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
   const errors = [];
-  page.on("pageerror", error => errors.push(error.message));
+  const failedRequests = [];
+  page.on("pageerror", error => errors.push(`pageerror: ${error.message}`));
   page.on("console", message => {
-    if (message.type() === "error") errors.push(message.text());
+    if (message.type() === "error") errors.push(`console: ${message.text()}`);
   });
+  page.on("requestfailed", request => failedRequests.push(`${request.url()} — ${request.failure()?.errorText || "failed"}`));
 
   try {
     await page.route("https://small-sun-ca3e.devernholgate5.workers.dev/**", route =>
@@ -40,8 +42,10 @@ const path = require("node:path");
     if (await page.locator("#voiceBtn").count() !== 1) throw new Error("Expected exactly one dashboard VOICE COMMAND button.");
 
     const modules = await page.evaluate(() => Object.keys(window.ASTRA?.modules || {}));
-    for (const required of ["mode", "moduleManager", "command", "response", "ai", "trading", "journal", "performance", "screen", "voice", "verification", "verifier", "installer", "backup"]) {
-      if (!modules.includes(required)) throw new Error(`Required module not loaded: ${required}`);
+    const requiredModules = ["mode", "moduleManager", "command", "response", "ai", "trading", "journal", "performance", "screen", "voice", "verification", "verifier", "installer", "backup"];
+    const missingModules = requiredModules.filter(required => !modules.includes(required));
+    if (missingModules.length) {
+      throw new Error(`Required modules not loaded: ${missingModules.join(", ")}\nLoaded: ${modules.join(", ")}\nRuntime errors: ${errors.join(" | ")}\nFailed resources: ${failedRequests.join(" | ")}`);
     }
 
     await page.fill("#commandInput", "hey");
@@ -54,6 +58,7 @@ const path = require("node:path");
     await page.waitForFunction(() => document.querySelectorAll("#output .astra-message").length >= 1);
 
     if (errors.length) throw new Error(`Browser console/runtime errors: ${errors.join(" | ")}`);
+    if (failedRequests.length) throw new Error(`Failed resources: ${failedRequests.join(" | ")}`);
 
     console.log("ASTRA browser smoke test passed.");
   } finally {
