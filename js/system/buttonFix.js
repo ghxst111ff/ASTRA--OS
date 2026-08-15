@@ -1,7 +1,7 @@
-/* ASTRA BUTTON FIX v2.0
+/* ASTRA BUTTON FIX v2.1
    Dashboard controls only.
    Conversation submission is owned by runtimeIntegrity.js.
-   Module loading is owned by index.html.
+   In-chat microphone is owned by conversationLayout.js.
 */
 window.addEventListener("DOMContentLoaded", () => {
     const $ = (selector, root = document) => root.querySelector(selector);
@@ -39,64 +39,8 @@ window.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    const commandArea = $(".core-command-area") || $(".command-area");
-    if (commandArea && !$(".chat-mic", commandArea)) {
-        const mic = document.createElement("button");
-        mic.type = "button";
-        mic.className = "chat-mic";
-        mic.title = "Talk to ASTRA";
-        mic.setAttribute("aria-label", "Talk to ASTRA");
-        mic.textContent = "🎙";
-
-        const send = $("#sendBtn", commandArea);
-        if (send) commandArea.insertBefore(mic, send);
-        else commandArea.appendChild(mic);
-
-        mic.addEventListener("click", () => {
-            const voice = ASTRA?.modules?.voice;
-            if (!voice) {
-                AstraReply("Voice module is not loaded yet.");
-                return;
-            }
-
-            const state = voice.status?.();
-            if (state?.listening) {
-                voice.stop?.();
-                mic.classList.remove("active");
-            } else {
-                voice.start?.();
-                mic.classList.add("active");
-            }
-        });
-    }
-
-    if (!$("#astraConversationStyle")) {
-        const style = document.createElement("style");
-        style.id = "astraConversationStyle";
-        style.textContent = `
-            .chat-mic {
-                width: 44px;
-                height: 40px;
-                padding: 0;
-                border: 1px solid rgba(0,194,255,.42);
-                background: #05243a;
-                color: #78e2ff;
-                border-radius: 7px;
-                font-size: 16px;
-                cursor: pointer;
-            }
-            .chat-mic.active {
-                box-shadow: 0 0 16px rgba(0,190,255,.35);
-                border-color: rgba(0,210,255,.8);
-            }
-            .quick-actions #screenBtn { cursor: pointer; }
-            .quick-actions #screenBtn.active {
-                box-shadow: 0 0 16px rgba(0,190,255,.35);
-                border-color: rgba(0,210,255,.8);
-            }
-        `;
-        document.head.appendChild(style);
-    }
+    // Do not create or bind the in-chat microphone here.
+    // conversationLayout.js owns that control so ASTRA has exactly one chat mic.
 
     document.addEventListener("click", event => {
         const button = event.target.closest("button");
@@ -112,6 +56,7 @@ window.addEventListener("DOMContentLoaded", () => {
             AstraReply("Before we enter, check the setup against your rules.");
         }
 
+        // The top VOICE COMMAND control is kept as the single dashboard voice control.
         if (button.classList.contains("voice-command")) {
             ASTRA?.modules?.voice?.toggle?.();
         }
@@ -127,5 +72,5 @@ window.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    console.log("ASTRA Button Fix v2.0 Loaded — controls only");
+    console.log("ASTRA Button Fix v2.1 Loaded — dashboard controls only");
 });
