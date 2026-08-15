@@ -1,22 +1,27 @@
-/* ASTRA CONVERSATION LAYOUT v1.1 */
+/* ASTRA CONVERSATION LAYOUT v2.0
+   Keep the conversation dock as a real page-level component.
+   Do not move it into the fixed-height ASTRA SAYS dashboard card.
+*/
 window.addEventListener("DOMContentLoaded", () => {
-  const host = document.querySelector(".astra-says");
   const dock = document.querySelector(".conversation-dock");
   const output = document.getElementById("output");
   const command = document.querySelector(".conversation-dock .command-area");
-  if (!host || !dock || !output || !command) return;
+  const main = document.querySelector(".main-area");
+  if (!dock || !output || !command || !main) return;
 
-  host.classList.add("conversation-panel");
+  if (dock.parentElement !== main) main.appendChild(dock);
+  if (output.parentElement !== dock) dock.insertBefore(output, command);
+
+  Object.assign(dock.style, {
+    display: "block",
+    visibility: "visible",
+    position: "relative",
+    zIndex: "120"
+  });
+
   output.classList.add("core-conversation");
   command.classList.add("core-command-area");
 
-  // Move the existing live conversation into the single ASTRA SAYS panel.
-  host.appendChild(output);
-  host.appendChild(command);
-  dock.remove();
-
-  // Keep the original controls: text field, one mic, then SEND.
-  // The existing top VOICE COMMAND button remains the dashboard voice control.
   let mic = document.getElementById("chatMicBtn");
   if (!mic) {
     mic = document.createElement("button");
@@ -34,7 +39,6 @@ window.addEventListener("DOMContentLoaded", () => {
   const screen = document.getElementById("hiddenScreen");
   if (screen) screen.remove();
 
-  // This file is the sole owner of the in-chat microphone.
   if (!mic.dataset.voiceBound) {
     mic.dataset.voiceBound = "true";
     mic.addEventListener("click", () => {
@@ -43,7 +47,6 @@ window.addEventListener("DOMContentLoaded", () => {
         AstraReply?.("Voice module is not loaded yet.");
         return;
       }
-
       const state = voice.status?.();
       if (state?.listening) {
         voice.stop?.();
@@ -55,5 +58,5 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  console.log("ASTRA CONVERSATION LAYOUT v1.1 — single bottom chat + one mic + SEND");
+  console.log("ASTRA CONVERSATION LAYOUT v2.0 — page-level chat dock restored");
 });
