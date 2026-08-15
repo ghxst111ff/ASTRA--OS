@@ -1,6 +1,6 @@
-/* ASTRA CONVERSATION LAYOUT v2.0
-   Keep the conversation dock as a real page-level component.
-   Do not move it into the fixed-height ASTRA SAYS dashboard card.
+/* ASTRA CONVERSATION LAYOUT v2.1
+   Locked bottom chat surface.
+   Messages scroll inside the chat; the page never grows from chat output.
 */
 window.addEventListener("DOMContentLoaded", () => {
   const dock = document.querySelector(".conversation-dock");
@@ -12,15 +12,31 @@ window.addEventListener("DOMContentLoaded", () => {
   if (dock.parentElement !== main) main.appendChild(dock);
   if (output.parentElement !== dock) dock.insertBefore(output, command);
 
+  // The CSS already defines the stable fixed chat surface. The previous
+  // layout forgot to apply the class, so the dock stayed in normal flow and
+  // every new message increased page height. Apply the class and keep the
+  // viewport clear of the fixed dock.
+  dock.classList.add("conversation-panel");
+  output.classList.add("core-conversation");
+  command.classList.add("core-command-area");
+
   Object.assign(dock.style, {
-    display: "block",
+    display: "flex",
     visibility: "visible",
-    position: "relative",
+    position: "fixed",
     zIndex: "120"
   });
 
-  output.classList.add("core-conversation");
-  command.classList.add("core-command-area");
+  // Keep the main content independently scrollable without allowing the
+  // conversation surface to contribute to document height.
+  main.style.paddingBottom = "225px";
+
+  // The message history itself is the scroll container.
+  output.style.minHeight = "0";
+  output.style.overflowY = "auto";
+  output.style.overflowX = "hidden";
+  output.style.flex = "1 1 auto";
+  output.style.scrollBehavior = "smooth";
 
   let mic = document.getElementById("chatMicBtn");
   if (!mic) {
@@ -58,5 +74,5 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  console.log("ASTRA CONVERSATION LAYOUT v2.0 — page-level chat dock restored");
+  console.log("ASTRA CONVERSATION LAYOUT v2.1 — locked bottom chat + internal scroll restored");
 });
