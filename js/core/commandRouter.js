@@ -1,7 +1,7 @@
 /* =========================
    ASTRA COMMAND ROUTER
-   Canonical command + natural-language boundary
-   v4.0 — conversation first, exact commands are fallback
+   Canonical conversation boundary
+   v4.1 — natural language first; exact commands are fallback/admin only
 ========================= */
 
 ASTRA.modules.command = {
@@ -22,19 +22,22 @@ ASTRA.modules.command = {
         return true;
     },
 
-    ensureResearchModule(rawCommand){
+    ensureResearchModule(){
+        // Research is a capability, not a command. Load it on first interaction
+        // so natural-language routing never depends on a keyword gate.
         if (ASTRA.modules.research) return true;
-        const text = String(rawCommand || "").toLowerCase();
-        const hasQuestion = /(what|whats|what's|any|which|when|where|tell me|show me|give me|anything|why|is there|are there|should i know)/.test(text);
-        const hasResearchSignal = /(news|headline|calendar|red folder|high impact|high-impact|coming out|coming up|upcoming|release|latest|today|tonight|this week|this month|announcement|economic|inflation|cpi|gdp|jobs|nfp|interest rate|central bank|catalyst|driver|moving|moved|important)/.test(text);
-        const hasMarketOrCurrency = /(gbp|usd|eur|jpy|aud|cad|chf|nzd|pound|dollar|euro|yen|sterling|market|forex|fx|currency|trading|trade)/.test(text);
-        if (!(hasQuestion && (hasResearchSignal || hasMarketOrCurrency))) return true;
         if (ASTRA.__researchLoading) return false;
         ASTRA.__researchLoading = true;
         const script = document.createElement("script");
-        script.src = "js/modules/research.js?v=1.1";
-        script.onload = () => { ASTRA.__researchLoading = false; this.process(rawCommand); };
-        script.onerror = () => { ASTRA.__researchLoading = false; console.error("ASTRA research module failed to load."); };
+        script.src = "js/modules/research.js?v=1.2";
+        script.onload = () => {
+            ASTRA.__researchLoading = false;
+            console.log("ASTRA research capability ready for natural-language routing.");
+        };
+        script.onerror = () => {
+            ASTRA.__researchLoading = false;
+            console.error("ASTRA research module failed to load.");
+        };
         document.head.appendChild(script);
         return false;
     },
@@ -44,7 +47,8 @@ ASTRA.modules.command = {
         const lowerCommand = rawCommand.toLowerCase().trim();
         if (!lowerCommand) return false;
 
-        // Research is loaded from natural-language context, not from an exact command.
+        // Load semantic capabilities first. The first message waits for the
+        // capability to load; the next turn is routed by meaning, not syntax.
         if (!this.ensureResearchModule(rawCommand)) return true;
 
         // UNIVERSAL NATURAL LANGUAGE ROUTING — exact commands are not required.
@@ -87,7 +91,7 @@ ASTRA.modules.command = {
             return true;
         }
 
-        // MODE COMMANDS
+        // MODE COMMANDS remain explicit because they change system state.
         if (lowerCommand.includes("build mode")) { ASTRA.modules.mode?.setMode?.("BUILD"); return true; }
         if (lowerCommand.includes("backtesting mode") || lowerCommand.includes("backtest mode")) { ASTRA.modules.modeSwitcher?.switch?.("BACKTEST"); return true; }
         if (lowerCommand.includes("trading mode")) { ASTRA.modules.mode?.setMode?.("TRADING"); return true; }
@@ -110,4 +114,4 @@ ASTRA.modules.command = {
 };
 
 ASTRA.registerModule("command", ASTRA.modules.command);
-console.log("ASTRA Command Router v4.0 Loaded — natural conversation first");
+console.log("ASTRA Command Router v4.1 Loaded — natural conversation first; exact commands are fallback only");
