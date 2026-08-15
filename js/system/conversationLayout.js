@@ -1,6 +1,7 @@
-/* ASTRA CONVERSATION LAYOUT v2.1
-   Locked bottom chat surface.
-   Messages scroll inside the chat; the page never grows from chat output.
+/* ASTRA CONVERSATION LAYOUT v2.2
+   Hard-locked bottom chat surface.
+   The chat is removed from normal document flow and its message history
+   is the only scrolling region. New messages must never change page height.
 */
 window.addEventListener("DOMContentLoaded", () => {
   const dock = document.querySelector(".conversation-dock");
@@ -12,31 +13,56 @@ window.addEventListener("DOMContentLoaded", () => {
   if (dock.parentElement !== main) main.appendChild(dock);
   if (output.parentElement !== dock) dock.insertBefore(output, command);
 
-  // The CSS already defines the stable fixed chat surface. The previous
-  // layout forgot to apply the class, so the dock stayed in normal flow and
-  // every new message increased page height. Apply the class and keep the
-  // viewport clear of the fixed dock.
   dock.classList.add("conversation-panel");
   output.classList.add("core-conversation");
   command.classList.add("core-command-area");
 
+  // Do not rely on the stylesheet alone. These values are deliberately
+  // applied inline so another layout rule cannot put the chat back into flow.
   Object.assign(dock.style, {
     display: "flex",
-    visibility: "visible",
+    flexDirection: "column",
     position: "fixed",
-    zIndex: "120"
+    left: "calc(210px + (100vw - 210px) / 2)",
+    right: "auto",
+    bottom: "16px",
+    top: "auto",
+    transform: "translateX(-50%)",
+    width: "min(1120px, calc(100vw - 250px))",
+    height: "205px",
+    minHeight: "205px",
+    maxHeight: "205px",
+    margin: "0",
+    visibility: "visible",
+    zIndex: "1000",
+    overflow: "hidden",
+    boxSizing: "border-box",
+    contain: "layout paint"
   });
 
-  // Keep the main content independently scrollable without allowing the
-  // conversation surface to contribute to document height.
+  // Reserve visual space in the page without putting the chat itself in flow.
   main.style.paddingBottom = "225px";
 
-  // The message history itself is the scroll container.
-  output.style.minHeight = "0";
-  output.style.overflowY = "auto";
-  output.style.overflowX = "hidden";
-  output.style.flex = "1 1 auto";
-  output.style.scrollBehavior = "smooth";
+  // Only this element scrolls. The dock and the page never grow with messages.
+  Object.assign(output.style, {
+    display: "block",
+    flex: "1 1 auto",
+    minHeight: "0",
+    height: "auto",
+    maxHeight: "none",
+    overflowY: "auto",
+    overflowX: "hidden",
+    overscrollBehavior: "contain",
+    scrollbarGutter: "stable",
+    scrollBehavior: "auto"
+  });
+
+  Object.assign(command.style, {
+    flex: "0 0 42px",
+    minHeight: "42px",
+    maxHeight: "42px",
+    overflow: "hidden"
+  });
 
   let mic = document.getElementById("chatMicBtn");
   if (!mic) {
@@ -74,5 +100,5 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  console.log("ASTRA CONVERSATION LAYOUT v2.1 — locked bottom chat + internal scroll restored");
+  console.log("ASTRA CONVERSATION LAYOUT v2.2 — hard-locked, internally scrollable chat");
 });
