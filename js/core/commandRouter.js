@@ -1,20 +1,17 @@
 /* =========================
    ASTRA COMMAND ROUTER
    Canonical command + natural-language boundary
+   v4.0 — conversation first, exact commands are fallback
 ========================= */
 
 ASTRA.modules.command = {
 
-    registerCommand(trigger, action){
-        ASTRA.registerCommand(trigger, action);
-    },
+    registerCommand(trigger, action){ ASTRA.registerCommand(trigger, action); },
 
     showView(panel, open = true){
         const name = String(panel || "").toLowerCase().trim();
         const view = document.getElementById(`view-${name}`) || document.getElementById(name);
-
         if (!view) return false;
-
         if (open) {
             if (typeof window.ASTRAShowView === "function") window.ASTRAShowView(name);
             else {
@@ -27,17 +24,17 @@ ASTRA.modules.command = {
 
     ensureResearchModule(rawCommand){
         if (ASTRA.modules.research) return true;
-        const text=String(rawCommand||"").toLowerCase();
-        const researchHint=/(news|headline|calendar|red folder|high impact|coming out|coming up|upcoming|release|latest|today|this week|announcement|economic|inflation|cpi|gdp|jobs|nfp|interest rate|central bank)/.test(text)
-            && /(what|whats|what's|any|which|when|tell me|show me|give me|anything|coming|news|latest)/.test(text)
-            && /(gbp|usd|eur|jpy|aud|cad|chf|nzd|pound|dollar|euro|yen|sterling|market|forex|fx|currency|trading|trade)/.test(text);
-        if(!researchHint) return true;
-        if(ASTRA.__researchLoading) return false;
-        ASTRA.__researchLoading=true;
-        const script=document.createElement("script");
-        script.src="js/modules/research.js?v=1";
-        script.onload=()=>{ASTRA.__researchLoading=false;this.process(rawCommand);};
-        script.onerror=()=>{ASTRA.__researchLoading=false;console.error("ASTRA research module failed to load.");};
+        const text = String(rawCommand || "").toLowerCase();
+        const hasQuestion = /(what|whats|what's|any|which|when|where|tell me|show me|give me|anything|why|is there|are there|should i know)/.test(text);
+        const hasResearchSignal = /(news|headline|calendar|red folder|high impact|high-impact|coming out|coming up|upcoming|release|latest|today|tonight|this week|this month|announcement|economic|inflation|cpi|gdp|jobs|nfp|interest rate|central bank|catalyst|driver|moving|moved|important)/.test(text);
+        const hasMarketOrCurrency = /(gbp|usd|eur|jpy|aud|cad|chf|nzd|pound|dollar|euro|yen|sterling|market|forex|fx|currency|trading|trade)/.test(text);
+        if (!(hasQuestion && (hasResearchSignal || hasMarketOrCurrency))) return true;
+        if (ASTRA.__researchLoading) return false;
+        ASTRA.__researchLoading = true;
+        const script = document.createElement("script");
+        script.src = "js/modules/research.js?v=1.1";
+        script.onload = () => { ASTRA.__researchLoading = false; this.process(rawCommand); };
+        script.onerror = () => { ASTRA.__researchLoading = false; console.error("ASTRA research module failed to load."); };
         document.head.appendChild(script);
         return false;
     },
@@ -47,14 +44,13 @@ ASTRA.modules.command = {
         const lowerCommand = rawCommand.toLowerCase().trim();
         if (!lowerCommand) return false;
 
-        // Load research only when a natural-language research request needs it.
-        // This keeps the legacy boot path light without making research command-based.
+        // Research is loaded from natural-language context, not from an exact command.
         if (!this.ensureResearchModule(rawCommand)) return true;
 
-        // UNIVERSAL NATURAL LANGUAGE ROUTING
+        // UNIVERSAL NATURAL LANGUAGE ROUTING — exact commands are not required.
         if (ASTRA.modules.naturalIntent?.handle?.(rawCommand)) return true;
 
-        // SYSTEM COMMANDS retained from the legacy command router.
+        // SYSTEM COMMANDS retained for administrative/build operations.
         if (lowerCommand === "astra version") { AstraReply(`ASTRA version ${ASTRA.version}`); return true; }
         if (lowerCommand === "astra modules") { AstraReply(`Loaded modules: ${Object.keys(ASTRA.modules).join(", ")}`); return true; }
 
@@ -78,7 +74,7 @@ ASTRA.modules.command = {
 
         if (lowerCommand.startsWith("activate ")) { ASTRA.modules.activator?.activate?.(rawCommand.replace(/^activate /i, "").trim()); return true; }
 
-        // ASTRA BUILD REQUESTS
+        // ASTRA BUILD REQUESTS remain explicit because they mutate the system.
         if (lowerCommand.includes("add") || lowerCommand.includes("create") || lowerCommand.includes("build feature")) {
             const update = ASTRA.modules.updateAnalyzer?.analyze?.(rawCommand);
             if (!update) return false;
@@ -96,7 +92,6 @@ ASTRA.modules.command = {
         if (lowerCommand.includes("backtesting mode") || lowerCommand.includes("backtest mode")) { ASTRA.modules.modeSwitcher?.switch?.("BACKTEST"); return true; }
         if (lowerCommand.includes("trading mode")) { ASTRA.modules.mode?.setMode?.("TRADING"); return true; }
 
-        // BUILD MODE
         const mode = ASTRA.modules.mode?.getMode?.();
         if (mode === "BUILD" && (lowerCommand.includes("add") || lowerCommand.includes("create") || lowerCommand.includes("build"))) {
             const update = ASTRA.modules.updateAnalyzer?.analyze?.(rawCommand);
@@ -115,4 +110,4 @@ ASTRA.modules.command = {
 };
 
 ASTRA.registerModule("command", ASTRA.modules.command);
-console.log("ASTRA Command Router Loaded — natural conversation first");
+console.log("ASTRA Command Router v4.0 Loaded — natural conversation first");
