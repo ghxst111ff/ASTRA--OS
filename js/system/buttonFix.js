@@ -1,4 +1,4 @@
-/* ASTRA BUTTON FIX v2.1
+/* ASTRA BUTTON FIX v2.2
    Dashboard controls only.
    Conversation submission is owned by runtimeIntegrity.js.
    In-chat microphone is owned by conversationLayout.js.
@@ -19,18 +19,16 @@ window.addEventListener("DOMContentLoaded", () => {
 
         screen.addEventListener("click", async () => {
             try {
-                const state = ASTRA.modules.screen?.status?.();
-                if (state?.sharing) {
+                const sharing = !!ASTRA.modules.screen?.sharing;
+                if (sharing) {
                     ASTRA.modules.screen.stopCapture?.();
                     screen.classList.remove("active");
-                    AstraReply("Screen sharing stopped.");
                     return;
                 }
 
                 const result = await ASTRA.modules.screen?.startCapture?.();
                 if (result !== false) {
                     screen.classList.add("active");
-                    AstraReply("Screen sharing is active. I can inspect the shared screen when you ask me to.");
                 }
             } catch (error) {
                 console.error("ASTRA screen button", error);
@@ -56,7 +54,6 @@ window.addEventListener("DOMContentLoaded", () => {
             AstraReply("Before we enter, check the setup against your rules.");
         }
 
-        // The top VOICE COMMAND control is kept as the single dashboard voice control.
         if (button.classList.contains("voice-command")) {
             ASTRA?.modules?.voice?.toggle?.();
         }
@@ -72,5 +69,5 @@ window.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    console.log("ASTRA Button Fix v2.1 Loaded — dashboard controls only");
+    console.log("ASTRA Button Fix v2.2 Loaded — dashboard controls only");
 });
