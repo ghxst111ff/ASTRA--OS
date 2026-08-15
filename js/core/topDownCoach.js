@@ -1,23 +1,50 @@
 /* =========================================
-   ASTRA TOP-DOWN COACH v1.3
+   ASTRA TOP-DOWN COACH v1.4
    Guided timeframe-by-timeframe chart review
    Wait -> listen -> inspect -> grade -> advance
+   HARD SILENCE: voice output is blocked while Jay is analyzing.
 ========================================= */
 const TopDownCoach = (()=>{
     const KEY="ASTRA_TOP_DOWN_SESSION";
     const DEFAULT={active:false,timeframes:["WEEKLY","DAILY","4H","1H","15M"],index:0,completed:[],awaitingReview:false,currentTranscript:"",lastAnalysis:"",lastReview:null,updatedAt:null};
     function load(){try{return {...DEFAULT,...(JSON.parse(localStorage.getItem(KEY))||{})};}catch{return {...DEFAULT};}}
     let state=load();
+    let allowNextSpeech=false;
+    let voiceGuardInstalled=false;
     function save(){state.updatedAt=new Date().toISOString();localStorage.setItem(KEY,JSON.stringify(state));}
     function current(){return state.timeframes[state.index]||null;}
     function normalize(text){return String(text||"").trim().toUpperCase();}
     function isFinished(text){return /\b(i'?m|im|i am|we'?re|we are)\s+(finished|done)\b|\bfinished\s+(analyzing|analysis|with)\b|\bdone\s+(analyzing|with|here)\b|\b(analysis|analyzing)\s+(is\s+)?done\b|\bthat'?s\s+it\b/i.test(String(text||""));}
+
+    function installVoiceGuard(){
+        if(voiceGuardInstalled || !ASTRA.modules.voice?.speak) return;
+        const voice=ASTRA.modules.voice;
+        const originalSpeak=voice.speak.bind(voice);
+        voice.speak=function(text){
+            // During an analysis checkpoint ASTRA must not speak for ANY reason.
+            // The only permitted output is the initial setup message or the review
+            // message after Jay explicitly says he is finished.
+            if(state.active && !state.awaitingReview && !allowNextSpeech) return false;
+            if(allowNextSpeech){
+                allowNextSpeech=false;
+                return originalSpeak(text);
+            }
+            return originalSpeak(text);
+        };
+        voiceGuardInstalled=true;
+    }
+
     function start(timeframes){
+        installVoiceGuard();
+        ASTRA.modules.voice?.stopSpeaking?.({ignoreMs:1500});
         if(Array.isArray(timeframes)&&timeframes.length)state.timeframes=timeframes.map(normalize).filter(Boolean);
         state.active=true;state.index=0;state.completed=[];state.awaitingReview=false;state.currentTranscript="";state.lastAnalysis="";state.lastReview=null;
-        ASTRA.modules.coach?.stopObserver?.();save();return snapshot();
+        // Permit exactly one spoken setup response: after that, hard silence.
+        allowNextSpeech=true;
+        ASTRA.modules.coach?.stopObserver?.();
+        save();return snapshot();
     }
-    function stop(){state.active=false;state.awaitingReview=false;save();return snapshot();}
+    function stop(){state.active=false;state.awaitingReview=false;allowNextSpeech=false;save();return snapshot();}
     function snapshot(){return JSON.parse(JSON.stringify({...state,currentTimeframe:current()}));}
     function beginIfNeeded(){if(!state.active)start();return snapshot();}
     function appendAnalysis(text){const value=String(text||"").trim();if(!value)return;state.currentTranscript=[state.currentTranscript,value].filter(Boolean).join("\n");save();}
@@ -80,6 +107,8 @@ Trading system rules: ${JSON.stringify(system.rules||[])}
             parsed.missingLiquidity=Array.isArray(parsed.missingLiquidity)?parsed.missingLiquidity:[];
             state.lastReview={timeframe:tf,...parsed,date:new Date().toISOString()};
 
+            // The review is the one permitted speech turn after the analysis.
+            allowNextSpeech=true;
             if(parsed.status==="CORRECT"){
                 state.completed.push({timeframe:tf,analysis:state.lastAnalysis,review:parsed,date:new Date().toISOString()});
                 if(state.index<state.timeframes.length-1){
@@ -92,7 +121,7 @@ Trading system rules: ${JSON.stringify(system.rules||[])}
             state.awaitingReview=false;save();
             return {handled:true,advanced:false,done:false,feedback:parsed.feedback||"Let's correct that before we move on.",review:parsed,state:snapshot()};
         }catch(error){
-            state.awaitingReview=false;save();console.warn("ASTRA top-down review:",error);
+            state.awaitingReview=false;allowNextSpeech=true;save();console.warn("ASTRA top-down review:",error);
             return {handled:true,error:true,message:"I couldn't complete the chart review. Keep this timeframe and try the checkpoint again."};
         }
     }
@@ -108,6 +137,7 @@ Trading system rules: ${JSON.stringify(system.rules||[])}
         appendAnalysis(text);
         return {handled:false,state:snapshot()};
     }
-    return {name:"ASTRA Top-Down Coach",version:"1.3",start,stop,snapshot,current,reviewAnalysis,handle};
+    installVoiceGuard();
+    return {name:"ASTRA Top-Down Coach",version:"1.4",start,stop,snapshot,current,reviewAnalysis,handle};
 })();
-ASTRA.registerModule("topDownCoach",TopDownCoach);console.log("ASTRA Top-Down Coach v1.3 Loaded");
+ASTRA.registerModule("topDownCoach",TopDownCoach);console.log("ASTRA Top-Down Coach v1.4 Loaded — hard silence during analysis");
