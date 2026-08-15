@@ -1,71 +1,117 @@
 /* =========================
-   REGISTER COMMAND MODULE
+   ASTRA COMMAND ROUTER
+   Canonical command + natural-language boundary
 ========================= */
 
 ASTRA.modules.command = {
 
-    process(command){
+    registerCommand(trigger, action){
+        ASTRA.registerCommand(trigger, action);
+    },
 
-        const mode = ASTRA.modules.mode.getMode();
-        const lowerCommand = command.toLowerCase().trim();
+    showView(panel, open = true){
+        const name = String(panel || "").toLowerCase().trim();
+
+        if (typeof window.ASTRAShowView === "function") {
+            window.ASTRAShowView(name);
+            return true;
+        }
+
+        const view =
+            document.getElementById(`view-${name}`) ||
+            document.getElementById(name);
+
+        if (!view) return false;
+
+        view.classList.toggle("active-view", open);
+        view.classList.toggle("active", open);
+        return true;
+    },
+
+    process(command){
+        const rawCommand = String(command ?? "").trim();
+        const lowerCommand = rawCommand.toLowerCase().trim();
+
+        if (!lowerCommand) return false;
 
         // UNIVERSAL NATURAL LANGUAGE ROUTING
-        // ASTRA understands intent across the whole system before exact commands.
-        if (ASTRA.modules.naturalIntent?.handle?.(command)) return;
+        if (ASTRA.modules.naturalIntent?.handle?.(rawCommand)) return true;
+
+        // SYSTEM COMMANDS retained from the legacy command router.
+        if (lowerCommand === "astra version") {
+            AstraReply(`ASTRA version ${ASTRA.version}`);
+            return true;
+        }
+
+        if (lowerCommand === "astra modules") {
+            AstraReply(
+                `Loaded modules: ${Object.keys(ASTRA.modules).join(", ")}`
+            );
+            return true;
+        }
 
         const registeredCommand = ASTRA.commands.find(
             cmd => cmd.trigger === lowerCommand
         );
 
         if (registeredCommand) {
-            registeredCommand.action();
-            return;
+            registeredCommand.action(rawCommand);
+            return true;
         }
 
-        if(lowerCommand.startsWith("approve ")){
-            const feature = command.replace(/approve /i,"").trim();
-            ASTRA.modules.updates.approve(feature);
-            return;
+        if (lowerCommand.startsWith("approve ")) {
+            const feature = rawCommand.replace(/^approve /i, "").trim();
+            ASTRA.modules.updates?.approve?.(feature);
+            return true;
         }
 
-        if(lowerCommand.startsWith("install ")){
-            const feature = command.replace(/install /i,"").trim();
-            ASTRA.modules.installer.install(feature);
-            return;
+        if (lowerCommand.startsWith("install ")) {
+            const feature = rawCommand.replace(/^install /i, "").trim();
+            ASTRA.modules.installer?.install?.(feature);
+            return true;
         }
 
-        const intent = ASTRA.modules.intent.detect(command);
+        const intent = ASTRA.modules.intent?.detect?.(rawCommand);
 
-        if(intent.action === "open"){
-            document.getElementById(intent.panel)?.classList.add("active");
-            AstraReply(`${intent.panel} opened.`);
-            return;
+        if (intent?.action === "open") {
+            const opened = this.showView(intent.panel, true);
+            AstraReply(opened ? `${intent.panel} opened.` : `${intent.panel} view not found.`);
+            return true;
         }
 
-        if(intent.action === "close"){
-            document.getElementById(intent.panel)?.classList.remove("active");
-            AstraReply(`${intent.panel} closed.`);
-            return;
+        if (intent?.action === "close") {
+            const closed = this.showView(intent.panel, false);
+            AstraReply(closed ? `${intent.panel} closed.` : `${intent.panel} view not found.`);
+            return true;
         }
 
-        if(lowerCommand.startsWith("activate ")){
-            const feature = command.replace(/activate /i,"").trim();
-            ASTRA.modules.activator.activate(feature);
-            return;
+        if (lowerCommand.startsWith("activate ")) {
+            const feature = rawCommand.replace(/^activate /i, "").trim();
+            ASTRA.modules.activator?.activate?.(feature);
+            return true;
         }
 
-        // ASTRA UPDATE REQUESTS
-        if(
+        // ASTRA BUILD REQUESTS
+        if (
             lowerCommand.includes("add") ||
             lowerCommand.includes("create") ||
             lowerCommand.includes("build feature")
-        ){
-            const update = ASTRA.modules.updateAnalyzer.analyze(command);
-            const plan = ASTRA.modules.buildPlanner.plan(update);
-            const code = ASTRA.modules.codeGenerator.generate(update);
-            ASTRA.modules.factory.create(update);
-            ASTRA.modules.executor.execute(update, code);
-            ASTRA.modules.updates.register(update);
+        ) {
+            const update = ASTRA.modules.updateAnalyzer?.analyze?.(rawCommand);
+            if (!update) return false;
+
+            const plan = ASTRA.modules.buildPlanner?.plan?.(update);
+            const code = ASTRA.modules.codeGenerator?.generate?.(update);
+
+            if (ASTRA.modules.factory?.create) {
+                ASTRA.modules.factory.create(update);
+            }
+
+            if (code && ASTRA.modules.executor?.execute) {
+                ASTRA.modules.executor.execute(update, code);
+            }
+
+            ASTRA.modules.updates?.register?.(update);
 
             AstraReply(`
 BUILD PLAN
@@ -83,7 +129,7 @@ Changes:
 ${update.changes}
 
 Priority:
-${update.priority}
+${update.priority || plan?.priority || "normal"}
 
 Status:
 Awaiting Approval
@@ -91,31 +137,41 @@ Awaiting Approval
 Type:
 Approve ${update.feature}
 `);
-            return;
+            return true;
         }
 
-        if(lowerCommand.includes("build mode")){
-            ASTRA.modules.mode.setMode("BUILD");
-            return;
+        // MODE COMMANDS
+        if (lowerCommand.includes("build mode")) {
+            ASTRA.modules.mode?.setMode?.("BUILD");
+            return true;
         }
 
-        if(lowerCommand.includes("backtesting mode") || lowerCommand.includes("backtest mode")){
-            ASTRA.modules.modeSwitcher.switch("BACKTEST");
-            return;
+        if (
+            lowerCommand.includes("backtesting mode") ||
+            lowerCommand.includes("backtest mode")
+        ) {
+            ASTRA.modules.modeSwitcher?.switch?.("BACKTEST");
+            return true;
         }
 
-        if(lowerCommand.includes("trading mode")){
-            ASTRA.modules.mode.setMode("TRADING");
-            return;
+        if (lowerCommand.includes("trading mode")) {
+            ASTRA.modules.mode?.setMode?.("TRADING");
+            return true;
         }
 
         // BUILD MODE
-        if(mode === "BUILD"){
-            if(lowerCommand.includes("add") || lowerCommand.includes("create") || lowerCommand.includes("build")){
-                const update = ASTRA.modules.updateAnalyzer.analyze(command);
-                const plan = ASTRA.modules.buildPlanner.plan(update);
-                const code = ASTRA.modules.codeGenerator.generate(update);
-                ASTRA.modules.updates.register(update);
+        const mode = ASTRA.modules.mode?.getMode?.();
+        if (mode === "BUILD") {
+            if (
+                lowerCommand.includes("add") ||
+                lowerCommand.includes("create") ||
+                lowerCommand.includes("build")
+            ) {
+                const update = ASTRA.modules.updateAnalyzer?.analyze?.(rawCommand);
+                const plan = ASTRA.modules.buildPlanner?.plan?.(update);
+                const code = ASTRA.modules.codeGenerator?.generate?.(update);
+
+                ASTRA.modules.updates?.register?.(update);
 
                 AstraReply(`
 BUILD PLAN
@@ -133,10 +189,7 @@ Files:
 ${plan.estimatedFiles.join(", ")}
 
 Generated Files:
-${code.files.join(", ")}
-
-Summary:
-${code.summary}
+${(code.files || []).map(file => file.name).join(", ")}
 
 Status:
 ${plan.status}
@@ -144,13 +197,21 @@ ${plan.status}
 Type:
 Approve ${plan.feature}
 `);
-                return;
+                return true;
             }
         }
 
-        // SEND TO AI for open-ended conversation and intents not handled locally.
-        ASTRA.modules.ai.ask(command);
+        // Open-ended conversation / AI fallback.
+        if (ASTRA.modules.ai?.ask) {
+            ASTRA.modules.ai.ask(rawCommand);
+            return true;
+        }
+
+        AstraReply("I don't recognize that command yet.");
+        return false;
     }
 };
 
-console.log("Command Router Module Loaded");
+ASTRA.registerModule("command", ASTRA.modules.command);
+
+console.log("ASTRA Command Router Loaded");
