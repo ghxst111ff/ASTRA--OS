@@ -1,6 +1,6 @@
-/* ASTRA BUTTON FIX v3.0
+/* ASTRA BUTTON FIX v3.1
    Restores dashboard quick actions and guarantees they are visible.
-   Navigation is owned by runtimeIntegrity.js / uiFix.js.
+   Also repairs the conversation dock after any stale cached layout script.
 */
 window.addEventListener("DOMContentLoaded", () => {
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -17,8 +17,6 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   let actions = $(".quick-actions");
-  const dock = $(".conversation-dock");
-
   if (!actions) {
     actions = document.createElement("div");
     actions.className = "quick-actions astra-restored-actions";
@@ -33,21 +31,6 @@ window.addEventListener("DOMContentLoaded", () => {
     dashboard.appendChild(actions);
   }
 
-  Object.assign(actions.style, {
-    display: "flex",
-    visibility: "visible",
-    opacity: "1",
-    position: "relative",
-    zIndex: "130",
-    width: "100%",
-    minHeight: "40px",
-    margin: "12px auto 0",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: "10px",
-    flexWrap: "wrap"
-  });
-
   if (!$("#screenBtn", actions)) {
     const screen = document.createElement("button");
     screen.id = "screenBtn";
@@ -57,35 +40,64 @@ window.addEventListener("DOMContentLoaded", () => {
     actions.insertBefore(screen, $("#viewScreenBtn", actions) || null);
   }
 
-  actions.querySelectorAll("button").forEach(button => Object.assign(button.style, {
-    display: "inline-flex",
-    visibility: "visible",
-    opacity: "1",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: "34px",
-    border: "1px solid rgba(0,194,255,.45)",
-    background: "#052338",
-    color: "#a9eaff",
-    borderRadius: "18px",
-    padding: "8px 17px",
-    fontSize: "8px",
-    cursor: "pointer",
-    position: "relative",
-    zIndex: "131"
-  }));
+  const showActions = () => {
+    Object.assign(actions.style, {
+      display: "flex",
+      visibility: "visible",
+      opacity: "1",
+      position: "relative",
+      zIndex: "130",
+      width: "100%",
+      minHeight: "40px",
+      margin: "12px auto 0",
+      justifyContent: "center",
+      alignItems: "center",
+      gap: "10px",
+      flexWrap: "wrap"
+    });
+    actions.querySelectorAll("button").forEach(button => Object.assign(button.style, {
+      display: "inline-flex",
+      visibility: "visible",
+      opacity: "1",
+      alignItems: "center",
+      justifyContent: "center",
+      minHeight: "34px",
+      border: "1px solid rgba(0,194,255,.45)",
+      background: "#052338",
+      color: "#a9eaff",
+      borderRadius: "18px",
+      padding: "8px 17px",
+      fontSize: "8px",
+      cursor: "pointer",
+      position: "relative",
+      zIndex: "131"
+    }));
+  };
 
-  if (dock) {
+  const restoreDock = () => {
+    const dock = $(".conversation-dock");
+    if (!dock) return;
     if (dock.parentElement !== main) main.appendChild(dock);
+    const output = $("#output");
+    const command = $(".conversation-dock .command-area");
+    if (output && output.parentElement !== dock && command) dock.insertBefore(output, command);
     Object.assign(dock.style, {
       display: "block",
       visibility: "visible",
       opacity: "1",
       position: "relative",
       zIndex: "120",
-      width: "100%"
+      width: "100%",
+      maxWidth: "1280px",
+      margin: "12px auto 0"
     });
-  }
+  };
+
+  showActions();
+  restoreDock();
+  // Covers cached copies of older conversationLayout.js.
+  setTimeout(() => { showActions(); restoreDock(); }, 0);
+  setTimeout(() => { showActions(); restoreDock(); }, 250);
 
   if (!actions.dataset.handlersBound) {
     actions.dataset.handlersBound = "true";
@@ -134,5 +146,5 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  console.log("ASTRA Button Fix v3.0 — quick actions forced visible");
+  console.log("ASTRA Button Fix v3.1 — actions + conversation dock restored");
 });
