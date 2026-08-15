@@ -1,7 +1,7 @@
 /* =========================
    ASTRA COMMAND ROUTER
    Canonical conversation boundary
-   v4.3 — top-down mode captures speech from the moment it starts
+   v4.4 — top-down async checkpoint responses are spoken explicitly
 ========================= */
 
 ASTRA.modules.command = {
@@ -30,24 +30,47 @@ ASTRA.modules.command = {
         return false;
     },
 
+    speakTopDownResult(result){
+        if (!result) return;
+        const message = result.message || result.feedback;
+        if (!message) return;
+        AstraReply(message);
+    },
+
     process(command){
         const rawCommand = String(command ?? "").trim();
         const lowerCommand = rawCommand.toLowerCase().trim();
         if (!lowerCommand) return false;
 
-        /* TOP-DOWN MUST BE FIRST.
-           This is deliberately before research, natural intent, registered commands,
-           and AI fallback. The first spoken request starts the exclusive session;
-           every following utterance is transcript-only until the checkpoint phrase.
+        /* TOP-DOWN OWNS THE CONVERSATION.
+           topDownCoach.handle() is async because the finished checkpoint performs
+           a vision/AI review. We must consume that Promise here; otherwise the
+           review result is silently discarded and ASTRA appears not to respond.
         */
         const topDown = ASTRA.modules.topDownCoach;
         if (topDown?.handle) {
-            const result = topDown.handle(rawCommand);
-            if (result?.started) {
-                AstraReply(result.message);
+            try {
+                const result = topDown.handle(rawCommand);
+                if (result && typeof result.then === "function") {
+                    result.then(resolved => {
+                        if (resolved?.started || resolved?.feedback || resolved?.message) {
+                            this.speakTopDownResult(resolved);
+                        }
+                    }).catch(error => {
+                        console.error("ASTRA top-down checkpoint routing:", error);
+                        if (topDown.snapshot?.().active) AstraReply("I couldn't complete that checkpoint. Stay on this timeframe and try again.");
+                    });
+                    return true;
+                }
+                if (result?.started) {
+                    this.speakTopDownResult(result);
+                    return true;
+                }
+                if (topDown.snapshot?.().active || result?.handled) return true;
+            } catch(error) {
+                console.error("ASTRA top-down routing:", error);
                 return true;
             }
-            if (topDown.snapshot?.().active || result?.handled) return true;
         }
 
         if (!this.ensureResearchModule(rawCommand)) return true;
@@ -88,4 +111,4 @@ ASTRA.modules.command = {
     }
 };
 ASTRA.registerModule("command", ASTRA.modules.command);
-console.log("ASTRA Command Router v4.3 Loaded — top-down capture starts before all other routing");
+console.log("ASTRA Command Router v4.4 Loaded — top-down async reviews now return spoken feedback");
