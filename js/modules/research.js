@@ -1,43 +1,51 @@
 /* =========================================================
-   ASTRA RESEARCH / WEB INTELLIGENCE MODULE v1.0
+   ASTRA RESEARCH / WEB INTELLIGENCE MODULE v1.1
    Natural-language research routing + market/news intelligence
 
    Design:
-   - No exact command phrases are required.
-   - Converts conversational research requests into structured intents.
-   - Keeps research behind the canonical ASTRA API gateway.
-   - Requests source-grounded/current information and never fabricates
-     a web result when the research provider is unavailable.
+   - User language is interpreted by meaning and slots, not exact commands.
+   - Research requests become structured intents before reaching the gateway.
+   - All external research remains behind the canonical ASTRA API gateway.
+   - Current claims require source/date grounding; ASTRA never fabricates a web result.
 ========================================================= */
 const ResearchModule = (() => {
     const CURRENCIES = {
         GBP: ["gbp", "pound", "pounds", "sterling", "british pound", "uk", "britain", "united kingdom"],
-        USD: ["usd", "dollar", "dollars", "us dollar", "united states", "america"],
-        EUR: ["eur", "euro", "euros", "eurozone", "europe"],
-        JPY: ["jpy", "yen", "japanese yen", "japan"],
-        AUD: ["aud", "australian dollar", "australia"],
-        CAD: ["cad", "canadian dollar", "canada"],
+        USD: ["usd", "dollar", "dollars", "us dollar", "united states", "america", "fed"],
+        EUR: ["eur", "euro", "euros", "eurozone", "europe", "ecb"],
+        JPY: ["jpy", "yen", "japanese yen", "japan", "boj"],
+        AUD: ["aud", "australian dollar", "australia", "rba"],
+        CAD: ["cad", "canadian dollar", "canada", "boc"],
         CHF: ["chf", "swiss franc", "switzerland"],
-        NZD: ["nzd", "new zealand dollar", "new zealand"]
+        NZD: ["nzd", "new zealand dollar", "new zealand", "rbnz"]
     };
 
     const RESEARCH_WORDS = [
         "news", "headline", "headlines", "calendar", "economic calendar", "event", "events",
         "coming out", "comes out", "coming up", "upcoming", "release", "releases", "data",
         "announcement", "announcements", "update", "updates", "latest", "today", "tonight",
-        "this week", "what happened", "what is happening", "what's happening", "what is coming",
-        "what's coming", "anything coming", "anything out", "red folder", "high impact",
-        "high-impact", "economic news", "market news", "fundamental", "fundamentals"
+        "this week", "this month", "what happened", "what is happening", "what's happening",
+        "what is coming", "what's coming", "anything coming", "anything out", "anything important",
+        "red folder", "high impact", "high-impact", "economic news", "market news", "fundamental",
+        "fundamentals", "catalyst", "catalysts", "driver", "drivers", "moving", "moved"
     ];
 
     const QUESTION_WORDS = [
-        "what", "whats", "what's", "any", "which", "when", "is there", "are there", "tell me",
-        "show me", "give me", "anything", "what do you see", "what should i know"
+        "what", "whats", "what's", "any", "which", "when", "where", "is there", "are there",
+        "tell me", "show me", "give me", "anything", "what do you see", "what should i know",
+        "should i know", "do i need to know", "why is", "why did"
     ];
+
+    const TIME_WORDS = {
+        today: ["today", "tonight", "now", "right now"],
+        week: ["this week", "coming week", "next few days", "next week"],
+        month: ["this month", "coming month", "next month"],
+        upcoming: ["coming", "upcoming", "next", "scheduled", "ahead"]
+    };
 
     const TOPIC_WORDS = {
         macro: ["inflation", "cpi", "ppi", "gdp", "jobs", "employment", "payroll", "nfp", "unemployment", "pmi", "retail sales", "central bank", "interest rate", "rates", "boe", "fed", "ecb", "boj", "rba", "boc", "rbnz"],
-        market: ["market", "forex", "fx", "currency", "pair", "trading", "trade", "price", "volatility"],
+        market: ["market", "forex", "fx", "currency", "pair", "trading", "trade", "price", "volatility", "moving", "moved", "driver", "catalyst"],
         politics: ["election", "government", "budget", "tariff", "trade war", "geopolitical", "politics"]
     };
 
@@ -56,11 +64,11 @@ const ResearchModule = (() => {
 
     function detectCurrency(text) {
         const normalized = normalize(text);
+        const pair = normalized.match(/\b(gbp|usd|eur|jpy|aud|cad|chf|nzd)\s*[/.-]\s*(gbp|usd|eur|jpy|aud|cad|chf|nzd)\b/);
+        if (pair) return pair[1].toUpperCase();
         for (const [currency, aliases] of Object.entries(CURRENCIES)) {
             if (includesAny(normalized, aliases)) return currency;
         }
-        const pair = normalized.match(/\b(gbp|usd|eur|jpy|aud|cad|chf|nzd)\s*[/.-]\s*(gbp|usd|eur|jpy|aud|cad|chf|nzd)\b/);
-        if (pair) return pair[1].toUpperCase();
         return null;
     }
 
@@ -70,14 +78,31 @@ const ResearchModule = (() => {
         return pair ? `${pair[1].toUpperCase()}/${pair[2].toUpperCase()}` : null;
     }
 
+    function detectTimeWindow(text) {
+        const normalized = normalize(text);
+        for (const [window, words] of Object.entries(TIME_WORDS)) {
+            if (includesAny(normalized, words)) return window;
+        }
+        return "current";
+    }
+
+    function detectRequestType(text) {
+        const normalized = normalize(text);
+        const calendar = includesAny(normalized, ["calendar", "coming out", "coming up", "upcoming", "release", "scheduled", "red folder", "high impact", "event"]);
+        const news = includesAny(normalized, ["news", "headline", "headlines", "what happened", "latest", "announcement", "update"]);
+        if (calendar && news) return "calendar_and_news";
+        if (calendar) return "calendar";
+        if (news) return "news";
+        if (includesAny(normalized, ["moving", "moved", "driver", "catalyst", "why is", "why did"])) return "market_drivers";
+        return "research";
+    }
+
     function detectTopic(text) {
         const normalized = normalize(text);
         for (const [topic, words] of Object.entries(TOPIC_WORDS)) {
             if (includesAny(normalized, words)) return topic;
         }
-        return includesAny(normalized, ["news", "calendar", "red folder", "coming out", "release"])
-            ? "macro"
-            : "general";
+        return "general";
     }
 
     function isResearchRequest(message, extra = {}) {
@@ -87,8 +112,9 @@ const ResearchModule = (() => {
         const researchScore = RESEARCH_WORDS.filter(word => text.includes(word)).length;
         const questionScore = QUESTION_WORDS.filter(word => text.includes(word)).length;
         const currency = detectCurrency(text);
-        const marketContext = includesAny(text, ["forex", "fx", "market", "trading", "trade", "pair", "currency"]);
-        return researchScore >= 1 && (questionScore >= 1 || currency || marketContext);
+        const marketContext = includesAny(text, ["forex", "fx", "market", "trading", "trade", "pair", "currency", "sterling", "pound", "dollar", "euro", "yen"]);
+        return (researchScore >= 1 && (questionScore >= 1 || currency || marketContext))
+            || (currency && questionScore >= 1 && includesAny(text, ["important", "matters", "know", "happening", "coming", "out"]));
     }
 
     function classify(message) {
@@ -96,17 +122,21 @@ const ResearchModule = (() => {
         const currency = detectCurrency(text);
         const pair = detectPair(text);
         const highImpact = includesAny(text, ["red folder", "high impact", "high-impact"]);
+        const requestType = detectRequestType(text);
         const topic = detectTopic(text);
+        const timeWindow = detectTimeWindow(text);
         const score = RESEARCH_WORDS.filter(word => text.includes(word)).length
             + QUESTION_WORDS.filter(word => text.includes(word)).length * 0.5
             + (currency ? 1 : 0)
             + (pair ? 1 : 0);
         return {
             intent: isResearchRequest(message) ? "web_research" : "conversation",
-            confidence: Math.min(1, score / 4),
+            confidence: Math.min(1, Math.max(.5, score / 4)),
             currency,
             pair,
             topic,
+            requestType,
+            timeWindow,
             highImpact,
             normalized: text
         };
@@ -116,9 +146,11 @@ const ResearchModule = (() => {
         const parts = [String(message || "").trim()];
         if (classification.currency) parts.push(`Focus currency: ${classification.currency}`);
         if (classification.pair) parts.push(`Focus pair: ${classification.pair}`);
+        parts.push(`Research type: ${classification.requestType}. Time window: ${classification.timeWindow}.`);
         if (classification.highImpact) parts.push("Prioritize high-impact economic calendar events and major releases.");
         if (classification.topic === "macro") parts.push("Prioritize official economic releases, central-bank information, and reputable financial news.");
-        parts.push("Use current information. Include publication/event dates. Distinguish scheduled events from already-released news.");
+        if (classification.topic === "market") parts.push("Explain the market relevance and likely trading impact without presenting speculation as fact.");
+        parts.push("Use current information. Include publication/event dates. Distinguish scheduled events from already-released news. Cite the sources used.");
         return parts.join(" ");
     }
 
@@ -138,9 +170,7 @@ const ResearchModule = (() => {
                 .join("\n");
             if (text) return text;
         }
-        if (Array.isArray(data?.choices)) {
-            return data.choices.map(choice => choice?.message?.content || "").filter(Boolean).join("\n");
-        }
+        if (Array.isArray(data?.choices)) return data.choices.map(choice => choice?.message?.content || "").filter(Boolean).join("\n");
         return JSON.stringify(data || {});
     }
 
@@ -154,11 +184,11 @@ const ResearchModule = (() => {
     }
 
     async function ask(message, options = {}) {
-        const classification = classify(message);
+        const classification = options.classification || classify(message);
         const query = buildQuery(message, classification);
         const api = ASTRA.modules.api;
         if (!api?.status?.().configured) {
-            const answer = "I can understand that as a research request, but the web research connection isn't configured yet.";
+            const answer = "I understand that as a research question, but the web research connection isn't configured yet.";
             if (!options.silent) AstraReply(answer);
             return { configured: false, answer, classification };
         }
@@ -168,14 +198,16 @@ const ResearchModule = (() => {
                 enabled: true,
                 mode: "web_intelligence",
                 intent: classification.intent,
+                requestType: classification.requestType,
                 currency: classification.currency,
                 pair: classification.pair,
                 topic: classification.topic,
+                timeWindow: classification.timeWindow,
                 highImpact: classification.highImpact,
                 requireCurrentInformation: true,
                 requireDates: true,
                 requireSources: true,
-                instruction: "Use live/current web information when available. Do not invent headlines, release times, source names, or citations. If search is unavailable, say so plainly. Prefer official economic agencies/central banks for releases and reputable financial news for market context."
+                instruction: "Use live/current web information when available. Do not invent headlines, release times, source names, or citations. If search is unavailable, say so plainly. Prefer official economic agencies and central banks for releases, and reputable financial news for market context. Clearly label scheduled events, released data, confirmed facts, and analysis."
             },
             tradingSystem: ASTRA.modules.ai?.getTradingSystem?.() || null,
             currentMarketSession: ASTRA.modules.memory?.currentMarketSession?.() || null
@@ -186,21 +218,12 @@ const ResearchModule = (() => {
             mode: "research",
             research: context.research,
             context,
-            // The worker can translate this into the provider-native search tool.
-            webSearch: {
-                enabled: true,
-                providerPreference: "native",
-                maxUses: Number(options.maxUses || 5)
-            },
+            webSearch: { enabled: true, providerPreference: "native", maxUses: Number(options.maxUses || 5) },
             tools: [{ type: "web_search_preview" }]
         };
 
         try {
-            // The canonical API gateway remains the only external integration boundary.
-            const data = await api.request(options.path || "", {
-                method: "POST",
-                body: JSON.stringify(payload)
-            });
+            const data = await api.request(options.path || "", { method: "POST", body: JSON.stringify(payload) });
             const answer = extractAnswer(data);
             const sources = extractSources(data);
             const result = {
@@ -234,10 +257,12 @@ const ResearchModule = (() => {
 
     return {
         name: "ASTRA Research / Web Intelligence",
-        version: "1.0",
+        version: "1.1",
         normalize,
         detectCurrency,
         detectPair,
+        detectTimeWindow,
+        detectRequestType,
         detectTopic,
         isResearchRequest,
         classify,
@@ -248,4 +273,4 @@ const ResearchModule = (() => {
 })();
 
 ASTRA.registerModule("research", ResearchModule);
-console.log("ASTRA Research / Web Intelligence v1.0 Loaded");
+console.log("ASTRA Research / Web Intelligence v1.1 Loaded");
