@@ -1,28 +1,29 @@
 /* =========================================
-   ASTRA NATURAL INTENT ENGINE v3.0
+   ASTRA NATURAL INTENT ENGINE v4.0
    Conversational routing — exact commands are optional
+   Intent is inferred from meaning + context before command matching.
 ========================================= */
 const NaturalIntent = (() => {
     const intents = [
-        { name: "observer_start", words: ["watch my chart", "watch the chart", "watch my screen", "keep an eye on my chart", "watch while i trade", "watch this with me", "monitor my chart"] },
-        { name: "observer_stop", words: ["stop watching", "stop monitoring", "you can stop watching"] },
-        { name: "observer_observe", words: ["what are you seeing", "what do you see", "see anything", "am i missing anything", "what did you notice", "do you notice anything", "what can you see on my screen"] },
-        { name: "live_trading_progress", words: ["live trading progress", "how am i doing live", "how are my live trades", "how is my live trading going"] },
-        { name: "backtesting_progress", words: ["backtesting progress", "backtest progress", "how is my backtesting going", "how am i doing in backtesting", "how is the backtest going"] },
-        { name: "trader_profile", words: ["trader profile", "trading profile", "trading journey", "how am i doing as a trader", "what patterns do you see in my trading"] },
-        { name: "journal_review", words: ["review my journal", "look at my journal", "what is in my journal", "look at my trade history", "what have i traded"] },
-        { name: "screen_analysis", words: ["look at my chart", "analyze my chart", "analyse my chart", "look at my screen", "what am i looking at", "what is happening on my chart"] },
-        { name: "screen_open", words: ["open my screen", "start screen sharing", "share my screen", "turn on screen view", "let me show you my screen"] },
-        { name: "screen_close", words: ["close screen view", "stop screen sharing", "stop sharing my screen", "turn off screen view"] },
-        { name: "voice_start", words: ["start listening", "start voice", "turn on voice", "listen to me", "activate voice"] },
-        { name: "voice_stop", words: ["stop listening", "stop voice", "turn off voice", "mute yourself"] },
-        { name: "memory", words: ["what do you remember", "what do you know about me", "remember this", "save this", "forget this", "do you remember"] },
-        { name: "performance", words: ["how is my performance", "how am i performing", "show my performance", "what is my win rate", "how is my equity", "what are my stats", "my statistics"] },
-        { name: "risk", words: ["how is my risk", "am i taking too much risk", "what is my risk", "check my risk", "risk management", "position size", "drawdown"] },
-        { name: "psychology", words: ["how is my psychology", "am i getting emotional", "am i emotional", "how is my mindset", "am i being disciplined", "my discipline", "trading psychology"] },
-        { name: "strategy", words: ["what does my strategy say", "does this fit my system", "does this fit my trading system", "what is my trading system", "what are my trading rules", "how do i trade"] },
-        { name: "api_status", words: ["is the api working", "is the api connected", "is everything connected", "is the gateway working", "check the api", "check my connection"] },
-        { name: "module_status", words: ["are your modules working", "what modules are online", "is everything working", "system status", "how is astra doing", "are you working properly"] }
+        { name: "observer_start", concepts: [["watch", "monitor", "keep an eye", "stay with me"], ["chart", "screen", "market", "trade"]] },
+        { name: "observer_stop", concepts: [["stop", "pause", "end"], ["watching", "monitoring", "observing"]] },
+        { name: "observer_observe", concepts: [["see", "notice", "missing", "spot", "looking at"], ["screen", "chart", "market"]] },
+        { name: "live_trading_progress", concepts: [["live", "current"], ["trading", "trades", "positions"], ["progress", "doing", "performance", "going"]] },
+        { name: "backtesting_progress", concepts: [["backtest", "backtesting", "historical"], ["progress", "doing", "performance", "going"]] },
+        { name: "trader_profile", concepts: [["trader", "trading"], ["profile", "journey", "patterns", "improving", "doing"]] },
+        { name: "journal_review", concepts: [["journal", "trade history", "trades"], ["review", "look", "show", "history"]] },
+        { name: "screen_analysis", concepts: [["chart", "screen", "market"], ["analyze", "analyse", "look", "happening", "seeing"]] },
+        { name: "screen_open", concepts: [["share", "show", "open", "start", "turn on"], ["screen", "screen sharing", "display"]] },
+        { name: "screen_close", concepts: [["stop", "close", "turn off"], ["screen", "screen sharing", "sharing"]] },
+        { name: "voice_start", concepts: [["start", "turn on", "activate", "listen"], ["voice", "listening"]] },
+        { name: "voice_stop", concepts: [["stop", "turn off", "mute"], ["voice", "listening"]] },
+        { name: "memory", concepts: [["remember", "memory", "know", "save", "forget"], ["this", "me", "that"]] },
+        { name: "performance", concepts: [["performance", "win rate", "equity", "stats", "statistics", "returns", "results"], ["how", "show", "what"]] },
+        { name: "risk", concepts: [["risk", "position size", "drawdown", "loss"], ["check", "how", "too much", "management"]] },
+        { name: "psychology", concepts: [["psychology", "mindset", "emotional", "emotion", "discipline", "patience"], ["how", "am i", "check", "doing"]] },
+        { name: "strategy", concepts: [["strategy", "system", "rules", "setup", "plan"], ["fit", "say", "trade", "trading"]] },
+        { name: "api_status", concepts: [["api", "gateway", "connection"], ["working", "connected", "status", "check"]] },
+        { name: "module_status", concepts: [["modules", "system", "astra", "everything"], ["working", "online", "status", "properly"]] }
     ];
 
     function normalize(message) {
@@ -34,20 +35,23 @@ const NaturalIntent = (() => {
             .trim();
     }
 
-    function score(text, phrase) {
-        if (text.includes(phrase)) return phrase.length > 12 ? 1 : .8;
-        const words = phrase.split(" ").filter(Boolean);
-        const hits = words.filter(word => text.includes(word)).length;
-        return hits / Math.max(words.length, 1) * .65;
+    function contains(text, term) {
+        return text.includes(term);
+    }
+
+    function conceptScore(text, concepts) {
+        if (!Array.isArray(concepts) || !concepts.length) return 0;
+        const matchedGroups = concepts.filter(group => group.some(term => contains(text, term)));
+        return matchedGroups.length / concepts.length;
     }
 
     function resolve(message) {
         const text = normalize(message);
         if (!text) return { intent: "empty", confidence: 1 };
 
-        // Research is semantic/slot based, not phrase based. This is deliberately
-        // evaluated before the legacy intent list so natural market/news questions
-        // reach the research system even when the wording is completely new.
+        // Research is semantic/slot based and is always checked before legacy routing.
+        // This means "what's coming for the pound?" and "red folder news for GBP"
+        // are the same intent even though the wording is different.
         const research = ASTRA.modules.research;
         if (research?.isResearchRequest?.(message)) {
             const classification = research.classify(message);
@@ -60,10 +64,13 @@ const NaturalIntent = (() => {
 
         let best = { intent: "conversation", confidence: 0 };
         for (const candidate of intents) {
-            const confidence = Math.max(...candidate.words.map(phrase => score(text, phrase)));
+            const confidence = conceptScore(text, candidate.concepts);
             if (confidence > best.confidence) best = { intent: candidate.name, confidence };
         }
-        if (best.confidence < .62) return { intent: "conversation", confidence: .5 };
+
+        // Intent routing should help the conversation, not hijack it. Ambiguous
+        // language falls through to the AI gateway instead of demanding a command.
+        if (best.confidence < .66) return { intent: "conversation", confidence: .5 };
         return best;
     }
 
@@ -72,9 +79,7 @@ const NaturalIntent = (() => {
         const m = ASTRA.modules;
 
         switch (result.intent) {
-            case "web_research":
-                m.research?.ask?.(message);
-                return true;
+            case "web_research": m.research?.ask?.(message, { classification: result.classification }); return true;
             case "observer_start": m.proactiveMarketObserver?.start?.(); return true;
             case "observer_stop": m.proactiveMarketObserver?.stop?.(); return true;
             case "observer_observe":
@@ -98,14 +103,14 @@ const NaturalIntent = (() => {
             case "psychology": m.psychology?.show?.(); return true;
             case "strategy": m.trading?.show?.(); return true;
             case "api_status": AstraReply(JSON.stringify(m.api?.status?.() || { configured: false }, null, 2)); return true;
-            case "module_status": AstraReply(JSON.stringify(ASTRA.modules.moduleManager?.list?.() || [], null, 2)); return true;
+            case "module_status": AstraReply(JSON.stringify(m.moduleManager?.list?.() || [], null, 2)); return true;
             case "memory": if (m.memory?.show) { m.memory.show(); return true; } break;
         }
         return false;
     }
 
-    return { name: "Natural Intent Engine", version: "3.0", normalize, resolve, handle };
+    return { name: "Natural Intent Engine", version: "4.0", normalize, resolve, handle };
 })();
 
 ASTRA.registerModule("naturalIntent", NaturalIntent);
-console.log("ASTRA Natural Intent Engine v3.0 Loaded");
+console.log("ASTRA Natural Intent Engine v4.0 Loaded");
