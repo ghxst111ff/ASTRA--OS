@@ -1,6 +1,6 @@
 /* =========================================
-   ASTRA BACKTESTING MODULE v2.1
-   Candle engine + strategy runner + persistent backtest trade sync
+   ASTRA BACKTESTING MODULE v2.2
+   Candle engine + strategy runner + saved backtest trade sync
 ========================================= */
 
 const BacktestingModule = (()=>{
@@ -27,15 +27,16 @@ const BacktestingModule = (()=>{
         }catch(e){ return []; }
     }
 
-    function syncSavedTrades(){
+    function mergeSavedTrades(){
         const saved=readSavedBacktests();
-        const runtime=trades.filter(t=>!t.id || !String(t.id).startsWith("trade_"));
-        const merged=[...runtime];
-        saved.forEach(t=>{
-            if(!merged.some(x=>x.id&&x.id===t.id)) merged.push(t);
+        const merged=[];
+        const seen=new Set();
+        [...trades,...saved].forEach(t=>{
+            const key=t?.id || `${t?.date||t?.testDate||""}|${t?.pair||""}|${t?.direction||t?.side||""}|${t?.entry||""}|${t?.pnl||""}`;
+            if(!seen.has(key)){ seen.add(key); merged.push(t); }
         });
         trades=merged;
-        return getTrades();
+        return trades.slice();
     }
 
     function setData(data=[]){ candles=Array.isArray(data)?data.slice():[]; return candles.length; }
@@ -51,7 +52,13 @@ const BacktestingModule = (()=>{
         trades.push(normalized);
         return normalized;
     }
-    function getTrades(){ syncSavedTrades(); return trades.slice(); }
+
+    function getTrades(){
+        mergeSavedTrades();
+        return trades.slice();
+    }
+
+    function syncSavedTrades(){ return mergeSavedTrades(); }
 
     function run(strategy,data){
         const series=Array.isArray(data)?data:candles;
@@ -76,20 +83,23 @@ const BacktestingModule = (()=>{
         const grossProfit=trades.filter(t=>t.pnl>0).reduce((s,t)=>s+t.pnl,0);
         const grossLoss=Math.abs(trades.filter(t=>t.pnl<0).reduce((s,t)=>s+t.pnl,0));
         const stats={trades:count,wins,losses,winRate:count?wins/count*100:0,netPnl:equity,grossProfit,grossLoss,profitFactor:grossLoss?grossProfit/grossLoss:null,maxDrawdown};
-        results={ready:true,trades:trades.slice(),stats};
-        return {...results,trades:trades.slice(),stats:{...stats}};
+        results={ready:true,trades:getTrades(),stats};
+        return {...results,trades:getTrades(),stats:{...stats}};
     }
 
-    function status(){ const saved=readSavedBacktests(); return {online:true,candles:candles.length,trades:getTrades().length,savedTrades:saved.length,ready:candles.length>1}; }
+    function status(){
+        const saved=readSavedBacktests();
+        return {online:true,candles:candles.length,trades:getTrades().length,savedTrades:saved.length,ready:candles.length>1};
+    }
 
     document.addEventListener("astra:journal-trade-added",event=>{
         const trade=event?.detail;
         if(String(trade?.tradeType||trade?.source||"").toLowerCase()==="backtest") record(trade);
     });
 
-    return {name:"Backtesting Module",version:"2.1",setData,addCandle,getCandles,clear,record,getTrades,syncSavedTrades,run,status};
+    return {name:"Backtesting Module",version:"2.2",setData,addCandle,getCandles,clear,record,getTrades,syncSavedTrades,run,status};
 })();
 
 ASTRA.registerModule("BacktestingModule",BacktestingModule);
 ASTRA.registerModule("backtesting",BacktestingModule);
-console.log("ASTRA Backtesting Module v2.1 Loaded");
+console.log("ASTRA Backtesting Module v2.2 Loaded");
