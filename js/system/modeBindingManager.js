@@ -1,128 +1,24 @@
-
 /* =========================================
-   ASTRA MODE BINDING MANAGER v1.0
+   ASTRA MODE BINDING MANAGER v1.1
+   Compatibility layer. ModeController is the single source of truth.
 ========================================= */
 
 const ModeBindingManager = {
-
-
-    bindings:{
-
-
-        TRADING:[
-
-            "Journal",
-
-            "Performance",
-
-            "TradingModule"
-
-        ],
-
-
-        BACKTEST:[
-
-            "BacktestingModule",
-
-            "BacktestJournal",
-
-            "BacktestPerformance"
-
-        ],
-
-
-        BUILD:[
-
-            "UpdateModule",
-
-            "CodeGenerator",
-
-            "BuildExecutor"
-
-        ],
-
-
-        VISION:[
-
-            "ScreenModule"
-
-        ],
-
-
-        VOICE:[
-
-            "VoiceModule"
-
-        ]
-
-    },
-
-
-
     bind(mode, module){
-
-
-        mode =
-        mode.toUpperCase();
-
-
-        if(!this.bindings[mode]){
-
-            this.bindings[mode]=[];
-
+        const controller = ASTRA?.modules?.modeController;
+        if(!controller || typeof controller.assign !== "function"){
+            console.warn("ASTRA ModeController is not available.");
+            return false;
         }
-
-
-        if(
-            !this.bindings[mode].includes(module)
-        ){
-
-            this.bindings[mode].push(module);
-
-        }
-
-
-        localStorage.setItem(
-            "ASTRA_MODE_BINDINGS",
-            JSON.stringify(this.bindings)
-        );
-
-
-        AstraReply(
-
-`MODE BINDING CREATED
-
-Mode:
-${mode}
-
-Module:
-${module}`
-
-        );
-
-
+        return controller.assign(mode, module);
     },
-
-
 
     getBindings(mode){
-
-        return this.bindings[
-            mode.toUpperCase()
-        ] || [];
-
+        const controller = ASTRA?.modules?.modeController;
+        if(!controller || typeof controller.getActiveModules !== "function") return [];
+        return controller.getActiveModules(mode);
     }
-
-
 };
 
-ASTRA.registerModule(
-    "modeBinding",
-    ModeBindingManager
-);
-
-
-console.log(
-"ASTRA Mode Binding Manager Loaded"
-);
-
+ASTRA.registerModule("modeBinding", ModeBindingManager);
+console.log("ASTRA Mode Binding Manager v1.1 Loaded — compatibility layer");
