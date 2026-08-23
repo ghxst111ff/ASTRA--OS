@@ -1,6 +1,7 @@
 /* =========================================================
-   ASTRA VOICE / CONVERSATION ENGINE v2.2
-   Final voice transcripts use the same canonical conversation pipeline as typed input.
+   ASTRA VOICE / CONVERSATION ENGINE v2.3
+   Trading-aware speech interpretation normalizes common
+   recognition mistakes before the canonical conversation pipeline.
 ========================================================= */
 const VoiceModule = (() => {
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -12,6 +13,32 @@ const VoiceModule = (() => {
     const NATURAL_PATTERNS=["online (natural)","online natural","neural","natural","premium","enhanced","wavenet","studio","journey","aria","jenny","ava","samantha","karen","google us english","microsoft"];
     const VOICE_RANK=["microsoft aria online (natural)","microsoft jenny online (natural)","microsoft ava online (natural)","microsoft sara online (natural)","microsoft guy online (natural)","google us english","samantha","karen","ava","aria","jenny","daniel"];
     const supported=()=>!!Recognition;
+
+    function normalizeTradingTranscript(text){
+        let value=String(text||"").trim();
+        if(!value)return "";
+        const replacements=[
+            [/\btop[ -]down analysis\b/gi,"top-down analysis"],[/\btop down analyses\b/gi,"top-down analysis"],[/\bcap[ -]?down analysis\b/gi,"top-down analysis"],
+            [/\bsupply in demand\b/gi,"supply and demand"],[/\bsupply n demand\b/gi,"supply and demand"],
+            [/\bliquid itty\b/gi,"liquidity"],[/\bliquid city\b/gi,"liquidity"],[/\bliquidities\b/gi,"liquidity"],
+            [/\bfracture(?:al)?\b/gi,"fractal"],[/\bfractual\b/gi,"fractal"],
+            [/\bconfirmation\b/gi,"confirmation"],[/\bconfirm nation\b/gi,"confirmation"],
+            [/\bweek lee\b/gi,"weekly"],[/\bweakly\b/gi,"weekly"],
+            [/\bdaily chart\b/gi,"Daily chart"],[/\bweek(?:ly)? chart\b/gi,"Weekly chart"],
+            [/\bfour[ -]?hour(?:s)?\b/gi,"4H"],[/\bfor hour(?:s)?\b/gi,"4H"],
+            [/\bone[ -]?hour(?:s)?\b/gi,"1H"],[/\bthirty[ -]?minute(?:s)?\b/gi,"30M"],
+            [/\bfifteen[ -]?minute(?:s)?\b/gi,"15M"],[/\bfifty minute(?:s)?\b/gi,"15M"],
+            [/\bfive[ -]?minute(?:s)?\b/gi,"5M"],[/\bforex\b/gi,"Forex"],
+            [/\bmarket structure\b/gi,"market structure"],[/\bbreak of structure\b/gi,"break of structure"],[/\bbos\b/gi,"BOS"],
+            [/\bhigher high(?:s)?\b/gi,"higher highs"],[/\bhigher low(?:s)?\b/gi,"higher lows"],[/\blower high(?:s)?\b/gi,"lower highs"],[/\blower low(?:s)?\b/gi,"lower lows"],
+            [/\bswing high(?:s)?\b/gi,"swing highs"],[/\bswing low(?:s)?\b/gi,"swing lows"],
+            [/\bimbalance(?:s)?\b/gi,"imbalance"],[/\binefficiency\b/gi,"inefficiency"],
+            [/\bI(?:'| a)m finished\b/gi,"I'm finished"],[/\bI'm finish\b/gi,"I'm finished"],[/\bfinished analysis\b/gi,"I'm finished"]
+        ];
+        replacements.forEach(([pattern,replacement])=>{value=value.replace(pattern,replacement);});
+        return value.replace(/\s+/g," ").trim();
+    }
+
     function loadVoices(){if(!window.speechSynthesis)return [];voices=window.speechSynthesis.getVoices()||[];return voices;}
     function voiceScore(voice){const name=String(voice?.name||"").toLowerCase(),lang=String(voice?.lang||"").toLowerCase();if(!/^en(-|_)/i.test(lang))return -1000;let score=0;if(voice.default)score+=8;if(lang==="en-us")score+=20;if(lang.startsWith("en-us"))score+=8;VOICE_RANK.forEach((p,i)=>{if(name.includes(p))score+=120-i*5;});NATURAL_PATTERNS.forEach(p=>{if(name.includes(p))score+=35;});return score;}
     function pickVoice(){loadVoices();if(settings.voiceName){const saved=voices.find(v=>v.name===settings.voiceName);if(saved)return saved;}return voices.filter(v=>/^en(-|_)/i.test(v.lang)).sort((a,b)=>voiceScore(b)-voiceScore(a))[0]||null;}
@@ -23,13 +50,8 @@ const VoiceModule = (() => {
     function nativeSpeakChunk(chunk){if(!window.speechSynthesis||!chunk)return false;const utterance=new SpeechSynthesisUtterance(chunk);currentUtterance=utterance;const voice=pickVoice();if(voice)utterance.voice=voice;utterance.rate=Math.max(.82,Math.min(1.08,settings.rate));utterance.pitch=Math.max(.88,Math.min(1.12,settings.pitch));utterance.volume=1;utterance.onstart=()=>{speaking=true;};utterance.onend=()=>{if(currentUtterance!==utterance)return;currentUtterance=null;const next=speechQueue.shift();if(next){setTimeout(()=>nativeSpeakChunk(next.text),next.pause);return;}queueRunning=false;speaking=false;ignoreRecognitionUntil=Date.now()+1100;if(listening&&recognition)scheduleRestart(650);};utterance.onerror=()=>{if(currentUtterance!==utterance)return;currentUtterance=null;speechQueue=[];queueRunning=false;speaking=false;ignoreRecognitionUntil=Date.now()+1100;if(listening&&recognition)scheduleRestart(650);};try{window.speechSynthesis.speak(utterance);return true;}catch(error){console.error("ASTRA native voice output:",error);return false;}}
     async function remoteSpeak(text){const api=ASTRA.modules.api;if(!api?.status?.().configured)return false;try{const data=await api.request(settings.ttsPath,{method:"POST",body:JSON.stringify({text,voice:settings.voiceName||null,provider:"natural",format:"mp3",instructions:"Conversational, warm, clear, natural pacing. Do not sound like a command reader.",responseFormat:"json"})});const audioUrl=data?.audioUrl||data?.url||data?.audio_url,audioData=data?.audioData||data?.audio||data?.audio_base64;if(!audioUrl&&!audioData)return false;const audio=new Audio(audioUrl||`data:audio/mpeg;base64,${audioData}`);speaking=true;ignoreRecognitionUntil=Date.now()+1200;await audio.play();await new Promise(resolve=>{audio.onended=resolve;audio.onerror=resolve;});speaking=false;ignoreRecognitionUntil=Date.now()+1100;if(listening&&recognition)scheduleRestart(650);return true;}catch(error){console.warn("ASTRA remote TTS unavailable; using native voice:",error);speaking=false;return false;}}
     async function speak(text){if(!text)return false;const chunks=splitForConversation(text);if(!chunks.length)return false;stopSpeaking({ignoreMs:800});if((settings.provider==="gateway"||settings.provider==="auto")&&await remoteSpeak(cleanForSpeech(text)))return true;if(!window.speechSynthesis)return false;speechQueue=chunks.slice(1).map((text,index)=>({text,pause:/[?]$/.test(chunks[index])?330:210}));queueRunning=true;return nativeSpeakChunk(chunks[0]);}
-    async function dispatchTranscript(text){const transcript=String(text||"").trim();if(!transcript)return false;const now=Date.now();if(processingTranscript)return false;if(transcript.toLowerCase()===lastTranscript.toLowerCase()&&now-lastTranscriptAt<1200)return false;processingTranscript=true;lastTranscript=transcript;lastTranscriptAt=now;try{ASTRA.modules.response?.user?.(transcript);const command=ASTRA.modules.command;let handled=false;
-        if(command?.process){try{handled=await Promise.resolve(command.process(transcript));}catch(routerError){console.error("ASTRA voice command router:",routerError);handled=false;}}
-        if(!handled&&ASTRA.modules.ai?.ask){await Promise.resolve(ASTRA.modules.ai.ask(transcript));handled=true;}
-        if(!handled)throw new Error("No conversation handler accepted the voice transcript");
-        return true;
-    }catch(error){console.error("ASTRA voice transcript routing:",error);if(typeof AstraReply==="function")AstraReply("I heard you, but I couldn't process that request. Please try again.");return false;}finally{processingTranscript=false;}}
-    function start(){if(!supported()){AstraReply("Voice recognition is not supported by this browser.");return false;}if(listening)return true;loadVoices();clearRestart();ignoreRecognitionUntil=Date.now()+900;recognition=new Recognition();recognition.continuous=true;recognition.interimResults=true;recognition.lang="en-US";recognition.maxAlternatives=1;recognition.onresult=event=>{for(let i=event.resultIndex;i<event.results.length;i++){const result=event.results[i],text=result[0]?.transcript?.trim();if(speaking||Date.now()<ignoreRecognitionUntil)continue;if(!result.isFinal||!text)continue;dispatchTranscript(text);}};recognition.onerror=event=>{console.warn("ASTRA voice recognition:",event.error);if(listening&&event.error!=="not-allowed"&&event.error!=="service-not-allowed")scheduleRestart(350);};recognition.onend=()=>{if(listening&&!speaking)scheduleRestart(650);};try{listening=true;recognition.start();AstraReply("Voice is ready.");return true;}catch(error){console.error("ASTRA voice start:",error);listening=false;recognition=null;return false;}}
+    async function dispatchTranscript(text){const transcript=normalizeTradingTranscript(text);if(!transcript)return false;const now=Date.now();if(processingTranscript)return false;if(transcript.toLowerCase()===lastTranscript.toLowerCase()&&now-lastTranscriptAt<1200)return false;processingTranscript=true;lastTranscript=transcript;lastTranscriptAt=now;try{ASTRA.modules.response?.user?.(transcript);const command=ASTRA.modules.command;let handled=false;if(command?.process){try{handled=await Promise.resolve(command.process(transcript));}catch(routerError){console.error("ASTRA voice command router:",routerError);handled=false;}}if(!handled&&ASTRA.modules.ai?.ask){await Promise.resolve(ASTRA.modules.ai.ask(transcript));handled=true;}if(!handled)throw new Error("No conversation handler accepted the voice transcript");return true;}catch(error){console.error("ASTRA voice transcript routing:",error);if(typeof AstraReply==="function")AstraReply("I heard you, but I couldn't process that request. Please try again.");return false;}finally{processingTranscript=false;}}
+    function start(){if(!supported()){AstraReply("Voice recognition is not supported by this browser.");return false;}if(listening)return true;loadVoices();clearRestart();ignoreRecognitionUntil=Date.now()+900;recognition=new Recognition();recognition.continuous=true;recognition.interimResults=true;recognition.lang="en-US";recognition.maxAlternatives=3;recognition.onresult=event=>{for(let i=event.resultIndex;i<event.results.length;i++){const result=event.results[i],text=result[0]?.transcript?.trim();if(speaking||Date.now()<ignoreRecognitionUntil)continue;if(!result.isFinal||!text)continue;dispatchTranscript(text);}};recognition.onerror=event=>{console.warn("ASTRA voice recognition:",event.error);if(listening&&event.error!=="not-allowed"&&event.error!=="service-not-allowed")scheduleRestart(350);};recognition.onend=()=>{if(listening&&!speaking)scheduleRestart(650);};try{listening=true;recognition.start();AstraReply("Voice is ready.");return true;}catch(error){console.error("ASTRA voice start:",error);listening=false;recognition=null;return false;}}
     function stop(){listening=false;clearRestart();stopSpeaking({ignoreMs:500});if(recognition){try{recognition.stop();}catch(error){}recognition=null;}AstraReply("Voice is off.");}
     const toggle=()=>listening?(stop(),false):start();
     function setVoice(name){loadVoices();const voice=voices.find(v=>v.name===name);if(!voice)return false;settings.voiceName=voice.name;localStorage.setItem(STORAGE.voice,voice.name);return true;}
@@ -37,8 +59,8 @@ const VoiceModule = (() => {
     function setRate(rate){const value=Number(rate);if(!Number.isFinite(value))return false;settings.rate=Math.max(.82,Math.min(1.08,value));localStorage.setItem(STORAGE.rate,String(settings.rate));return true;}
     function setPitch(pitch){const value=Number(pitch);if(!Number.isFinite(value))return false;settings.pitch=Math.max(.88,Math.min(1.12,value));localStorage.setItem(STORAGE.pitch,String(settings.pitch));return true;}
     function getVoices(){loadVoices();return voices.filter(v=>/^en(-|_)/i.test(v.lang)).map(v=>({name:v.name,lang:v.lang,default:v.default,naturalScore:voiceScore(v)})).sort((a,b)=>b.naturalScore-a.naturalScore);}
-    function status(){const voice=pickVoice();return {supported:supported(),listening,speaking,restarting,processingTranscript,provider:settings.provider,voice:voice?.name||null,voiceNaturalScore:voice?voiceScore(voice):null,rate:settings.rate,pitch:settings.pitch,ttsPath:settings.ttsPath,gatewayConfigured:!!ASTRA.modules.api?.status?.().configured,conversationalPacing:true,interruptionProtection:true};}
+    function status(){const voice=pickVoice();return {supported:supported(),listening,speaking,restarting,processingTranscript,provider:settings.provider,voice:voice?.name||null,voiceNaturalScore:voice?voiceScore(voice):null,rate:settings.rate,pitch:settings.pitch,ttsPath:settings.ttsPath,gatewayConfigured:!!ASTRA.modules.api?.status?.().configured,conversationalPacing:true,interruptionProtection:true,tradingSpeechNormalization:true};}
     if(window.speechSynthesis)window.speechSynthesis.onvoiceschanged=loadVoices;
-    return {name:"Voice Conversation Engine",version:"2.2",supported,start,stop,toggle,speak,stopSpeaking,dispatchTranscript,setVoice,setProvider,setRate,setPitch,getVoices,status};
+    return {name:"Voice Conversation Engine",version:"2.3",supported,start,stop,toggle,speak,stopSpeaking,dispatchTranscript,normalizeTradingTranscript,setVoice,setProvider,setRate,setPitch,getVoices,status};
 })();
 ASTRA.registerModule("voice",VoiceModule);
