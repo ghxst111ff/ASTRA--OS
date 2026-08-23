@@ -1,22 +1,16 @@
-/* ASTRA BUTTON FIX v3.4 */
+/* ASTRA BUTTON FIX v3.5 */
 window.addEventListener("DOMContentLoaded", () => {
   const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const main=$(".main-area"), dashboard=$("#view-dashboard"); if(!main||!dashboard)return;
-  const go=name=>window.ASTRAShowView?.(name);
-  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const go=name=>window.ASTRAShowView?.(name), sleep=ms=>new Promise(r=>setTimeout(r,ms));
   async function waitForVoice(timeout=5000){const started=Date.now();while(Date.now()-started<timeout){const v=window.ASTRA?.modules?.voice;if(v&&typeof v.toggle==="function")return v;await sleep(50);}return null;}
+  async function waitForTopDown(timeout=10000){const started=Date.now();while(Date.now()-started<timeout){const coach=window.ASTRA?.modules?.topDownCoach;if(coach&&typeof coach.start==="function")return coach;await sleep(100);}return null;}
   async function startTopDown(){
-    const phrase="Let's do top-down analysis";
-    const started=Date.now();
-    while(Date.now()-started<5000){
-      const voice=window.ASTRA?.modules?.voice;
-      if(voice?.dispatchTranscript){await voice.dispatchTranscript(phrase);return true;}
-      const command=window.ASTRA?.modules?.command;
-      if(command?.process){const handled=await Promise.resolve(command.process(phrase));if(handled!==false)return true;}
-      await sleep(100);
-    }
-    const ai=window.ASTRA?.modules?.ai;
-    if(ai?.ask){await Promise.resolve(ai.ask(phrase));return true;}
+    const coach=await waitForTopDown();
+    if(coach){const result=await Promise.resolve(coach.start());if(result?.message)AstraReply?.(result.message);return true;}
+    // Last-resort canonical route if the coach is late.
+    const command=window.ASTRA?.modules?.command;
+    if(command?.process){const handled=await Promise.resolve(command.process("Let's do top-down analysis"));return handled!==false;}
     return false;
   }
   const voiceBtn=$("#voiceBtn");
@@ -31,12 +25,12 @@ window.addEventListener("DOMContentLoaded", () => {
   showActions();restoreDock();setTimeout(()=>{showActions();restoreDock();},250);
   if(!actions.dataset.handlersBound){actions.dataset.handlersBound="true";actions.addEventListener("click",async e=>{const b=e.target.closest("button");if(!b)return;
     if(b.id==="newTradeBtn"){go("journal");AstraReply?.("Let's log it properly. Tell me the setup, direction, reason for entry, and whether it followed your rules.");}
-    if(b.id==="topDownBtn"){if(b.dataset.starting==="true")return;b.dataset.starting="true";const original=b.textContent;b.disabled=true;b.textContent="◌ STARTING TOP-DOWN...";try{const ok=await startTopDown();if(!ok)AstraReply?.("Top-down analysis has not loaded yet. Please refresh and try again.");}catch(err){console.error("ASTRA top-down button",err);AstraReply?.("I couldn't start top-down analysis. Please try again.");}finally{b.disabled=false;b.dataset.starting="false";b.textContent=original;}}
+    if(b.id==="topDownBtn"){if(b.dataset.starting==="true")return;b.dataset.starting="true";const original=b.textContent;b.disabled=true;b.textContent="◌ STARTING TOP-DOWN...";try{const ok=await startTopDown();if(!ok)AstraReply?.("Top-down analysis could not start yet. Please try the button again.");}catch(err){console.error("ASTRA top-down button",err);AstraReply?.("I couldn't start top-down analysis. Please try again.");}finally{b.disabled=false;b.dataset.starting="false";b.textContent=original;}}
     if(b.id==="analyzeBtn"){const r=ASTRA?.modules?.screen?.showAnalysis?.();if(!r?.ready)AstraReply?.("Share your chart first, then I'll look at the setup with you.");}
     if(b.id==="journalBtn")go("journal");
     if(b.id==="screenBtn"){try{const m=ASTRA?.modules?.screen;if(m?.sharing){m.stopCapture?.();b.classList.remove("active");}else{const r=await m?.startCapture?.();if(r!==false)b.classList.add("active");}}catch(err){console.error(err);AstraReply?.("I couldn't start screen sharing. Please allow screen access when your browser asks.");}}
     if(b.id==="viewScreenBtn")ASTRA?.modules?.ai?.ask?.("Give me a current market scan and tell me what is actually relevant to my trading plan.",{trading:true,analysis:true});
     if(b.id==="watchBtn"){const o=ASTRA?.modules?.proactiveMarketObserver;if(!o)return AstraReply?.("Screen Watch is not loaded yet.");const s=o.status?.();if(s?.watching){o.stop?.();b.classList.remove("active");}else{o.start?.();b.classList.add("active");}}
   });}
-  console.log("ASTRA Button Fix v3.4 — Top-Down button uses canonical conversation pipeline");
+  console.log("ASTRA Button Fix v3.5 — Top-Down button starts coach directly");
 });
