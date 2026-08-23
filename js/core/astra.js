@@ -72,9 +72,12 @@ const ASTRA = {
 
 };
 
+// Expose the core on window as well. ASTRA is declared with const, which does not
+// automatically become window.ASTRA; older UI scripts use the window reference.
+window.ASTRA = ASTRA;
+
 
 
 console.log(
 "ASTRA CORE v2.0 ONLINE"
 );
-
