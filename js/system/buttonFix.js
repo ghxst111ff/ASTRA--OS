@@ -1,21 +1,14 @@
-/* ASTRA BUTTON FIX v3.7 — use the actual global ASTRA binding */
+/* ASTRA BUTTON FIX v3.8 — use the actual global ASTRA binding */
 window.addEventListener("DOMContentLoaded",()=>{
  const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
  const main=$(".main-area"),dashboard=$("#view-dashboard");if(!main||!dashboard)return;
  const go=n=>window.ASTRAShowView?.(n),sleep=ms=>new Promise(r=>setTimeout(r,ms));
  const core=()=>typeof ASTRA!=="undefined"?ASTRA:null;
  const reply=text=>typeof AstraReply==="function"?AstraReply(text):console.log("ASTRA:",text);
- async function waitForVoice(timeout=5000){const t=Date.now();while(Date.now()-t<timeout){const v=core()?.modules?.voice;if(v?.toggle)return v;await sleep(50)}return null}
- async function startTopDown(){
-   const coach=core()?.modules?.topDownCoach;
-   if(!coach||typeof coach.start!=="function")throw new Error("TopDownCoach unavailable");
-   const result=await Promise.resolve(coach.start());
-   reply(result?.message||"Okay, we're ready. Start with the WEEKLY chart.");
-   return result;
- }
  const voiceBtn=$("#voiceBtn");
- if(voiceBtn&&!voiceBtn.dataset.voiceBound){voiceBtn.dataset.voiceBound="true";voiceBtn.addEventListener("click",async()=>{if(voiceBtn.dataset.voiceStarting)return;voiceBtn.dataset.voiceStarting="true";const original=voiceBtn.textContent;voiceBtn.disabled=true;voiceBtn.textContent="◌ LOADING VOICE...";try{const v=await waitForVoice();if(!v){reply("Voice is still starting. Please try again in a moment.");return}const enabled=v.toggle(),active=enabled!==false&&v.status?.().listening;voiceBtn.classList.toggle("active",!!active);voiceBtn.textContent=active?"◉ VOICE ON":"◉ VOICE COMMAND"}catch(e){console.error(e);reply("I couldn't start voice. Please try again.");voiceBtn.textContent=original}finally{voiceBtn.disabled=false;voiceBtn.dataset.voiceStarting=""}})}
+ if(voiceBtn&&!voiceBtn.dataset.voiceBound){voiceBtn.dataset.voiceBound="true";const updateVoiceButton=()=>{const active=!!core()?.modules?.voice?.status?.().outputEnabled;voiceBtn.classList.toggle("active",active);voiceBtn.textContent=active?"◉ ASTRA VOICE ON":"◉ ASTRA VOICE OFF"};voiceBtn.addEventListener("click",()=>{const v=core()?.modules?.voice;if(!v?.toggleOutput){reply("Voice output is not available yet.");return}const active=v.toggleOutput();updateVoiceButton();reply(active?"ASTRA voice output is on.":"ASTRA voice output is off.")});setTimeout(updateVoiceButton,0)}
  $$(".nav-item[data-module]").forEach(b=>{if(b.dataset.navBound)return;b.dataset.navBound="true";b.addEventListener("click",()=>go(b.dataset.module))});
+ async function startTopDown(){const coach=core()?.modules?.topDownCoach;if(!coach||typeof coach.start!=="function")throw new Error("TopDownCoach unavailable");const result=await Promise.resolve(coach.start());reply(result?.message||"Okay, we're ready. Start with the WEEKLY chart.");return result;}
  let actions=$(".quick-actions");if(!actions){actions=document.createElement("div");actions.className="quick-actions astra-restored-actions";dashboard.appendChild(actions)}
  const ensure=(id,label,before)=>{let b=$("#"+id,actions);if(!b){b=document.createElement("button");b.id=id;b.type="button";b.textContent=label;if(before)actions.insertBefore(b,before);else actions.appendChild(b)}return b};
  ensure("newTradeBtn","＋ NEW TRADE");const topBtn=ensure("topDownBtn","◈ TOP-DOWN ANALYSIS",$("#analyzeBtn",actions));ensure("analyzeBtn","⌁ ANALYZE");ensure("journalBtn","＋ JOURNAL");ensure("screenBtn","▣ SCREEN");ensure("viewScreenBtn","◉ MARKET SCAN");ensure("watchBtn","◉ SCREEN WATCH");
@@ -23,5 +16,5 @@ window.addEventListener("DOMContentLoaded",()=>{
  const restoreDock=()=>{const dock=$(".conversation-dock");if(!dock)return;if(dock.parentElement!==main)main.appendChild(dock);Object.assign(dock.style,{display:"block",visibility:"visible",opacity:"1",position:"relative",zIndex:"120",width:"100%",maxWidth:"1280px",margin:"12px auto 0"})};showActions();restoreDock();setTimeout(()=>{showActions();restoreDock()},250);
  if(!topBtn.dataset.topDownBound){topBtn.dataset.topDownBound="true";topBtn.addEventListener("click",async()=>{if(topBtn.dataset.starting)return;topBtn.dataset.starting="true";const original=topBtn.textContent;topBtn.disabled=true;topBtn.textContent="◌ STARTING TOP-DOWN...";try{await startTopDown()}catch(err){console.error("ASTRA top-down button",err);reply("Top-down analysis could not start. The Top-Down Coach is not registered in ASTRA yet.")}finally{topBtn.disabled=false;topBtn.dataset.starting="";topBtn.textContent=original}})}
  if(!actions.dataset.handlersBound){actions.dataset.handlersBound="true";actions.addEventListener("click",async e=>{const b=e.target.closest("button");if(!b||b===topBtn)return;if(b.id==="newTradeBtn"){go("journal");reply("Let's log it properly. Tell me the setup, direction, reason for entry, and whether it followed your rules.")}if(b.id==="analyzeBtn"){const r=core()?.modules?.screen?.showAnalysis?.();if(!r?.ready)reply("Share your chart first, then I'll look at the setup with you.")}if(b.id==="journalBtn")go("journal");if(b.id==="screenBtn"){try{const m=core()?.modules?.screen;if(m?.sharing){m.stopCapture?.();b.classList.remove("active")}else{const r=await m?.startCapture?.();if(r!==false)b.classList.add("active")}}catch(err){console.error(err);reply("I couldn't start screen sharing. Please allow screen access when your browser asks.")}}if(b.id==="viewScreenBtn")core()?.modules?.ai?.ask?.("Give me a current market scan and tell me what is actually relevant to my trading plan.",{trading:true,analysis:true});if(b.id==="watchBtn"){const o=core()?.modules?.proactiveMarketObserver;if(!o)return reply("Screen Watch is not loaded yet.");if(o.status?.().watching){o.stop?.();b.classList.remove("active")}else{o.start?.();b.classList.add("active")}}})}
- console.log("ASTRA Button Fix v3.7 — TopDownCoach uses ASTRA.modules directly");
+ console.log("ASTRA Button Fix v3.8 — voice button controls output; V is push-to-talk");
 });
