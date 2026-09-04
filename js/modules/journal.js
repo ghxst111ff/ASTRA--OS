@@ -1,7 +1,7 @@
-
 /* =========================================
-   ASTRA JOURNAL MODULE v2.2
+   ASTRA JOURNAL MODULE v2.3
    Reliable persistence for Live, Demo and Backtest trades.
+   Supports editing and deleting existing journal entries.
 ========================================= */
 
 const JournalModule = (()=>{
@@ -23,7 +23,6 @@ const JournalModule = (()=>{
       date: trade?.date || new Date().toISOString()
     };
 
-    // Persist first. Optional integrations must never prevent the trade from saving.
     journal.trades.push(normalized);
     save();
 
@@ -46,6 +45,34 @@ const JournalModule = (()=>{
     return normalized;
   }
 
+  function updateTrade(id, changes){
+    const index=journal.trades.findIndex(t=>String(t.id)===String(id));
+    if(index<0) return null;
+    const existing=journal.trades[index];
+    const updated={
+      ...existing,
+      ...changes,
+      id: existing.id,
+      source: changes?.source || existing.source || "journal",
+      updatedAt: new Date().toISOString()
+    };
+    journal.trades[index]=updated;
+    save();
+    try { document.dispatchEvent(new CustomEvent("astra:journal-trade-updated", {detail:updated})); }
+    catch(err) { console.error("Journal update event failed", err); }
+    return updated;
+  }
+
+  function deleteTrade(id){
+    const index=journal.trades.findIndex(t=>String(t.id)===String(id));
+    if(index<0) return null;
+    const removed=journal.trades.splice(index,1)[0];
+    save();
+    try { document.dispatchEvent(new CustomEvent("astra:journal-trade-deleted", {detail:removed})); }
+    catch(err) { console.error("Journal delete event failed", err); }
+    return removed;
+  }
+
   function show(){
     let report="Trading Journal:<br><br>";
     journal.trades.forEach((trade,index)=>{
@@ -64,10 +91,10 @@ const JournalModule = (()=>{
 
   function getData(){ return {trades:[...journal.trades]}; }
 
-  return {addTrade,show,stats,getData};
+  return {addTrade,updateTrade,deleteTrade,show,stats,getData};
 })();
 
 ASTRA.modules.journal=JournalModule;
 ASTRA.commands.push({trigger:"show journal",action(){JournalModule.show();}});
 ASTRA.commands.push({trigger:"journal stats",action(){JournalModule.stats();}});
-console.log("Journal Module Loaded v2.2");
+console.log("Journal Module Loaded v2.3");
