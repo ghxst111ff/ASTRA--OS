@@ -1,4 +1,4 @@
-/* ASTRA TRADE SCREENSHOT ATTACHMENT v1.2
+/* ASTRA TRADE SCREENSHOT ATTACHMENT v1.3
    Chart screenshots are stored separately by trade id so journal persistence
    remains unchanged and Live/Demo/Backtest categories stay separated.
 */
@@ -15,8 +15,8 @@
   document.addEventListener("submit",event=>{const form=event.target.closest?.("#astraTradeForm");if(!form)return;const file=form.querySelector('input[name="tradeScreenshot"]')?.files?.[0];if(file)pending.set(form,file);},true);
   document.addEventListener("astra:journal-trade-added",event=>{const trade=event.detail;if(!trade?.id)return;const form=document.querySelector("#astraTradeForm");const file=form&&pending.get(form);if(!file)return;pending.delete(form);saveFile(trade.id,file,trade.tradeType||trade.source||"trade").catch(err=>console.error("ASTRA trade screenshot save failed",err));});
   const observer=new MutationObserver(()=>{const form=document.querySelector("#astraTradeForm");if(form)inject(form);});
-  function boot(){if(document.body)observer.observe(document.body,{childList:true,subtree:true});const form=document.querySelector("#astraTradeForm");if(form)inject(form);const script=document.createElement("script");script.src="js/system/tradeEditor.js?v=1";script.async=false;document.head.appendChild(script);}
+  function boot(){if(document.body)observer.observe(document.body,{childList:true,subtree:true});const form=document.querySelector("#astraTradeForm");if(form)inject(form);const editor=document.createElement("script");editor.src="js/system/tradeEditor.js?v=2";editor.async=false;document.head.appendChild(editor);const manager=document.createElement("script");manager.src="js/system/tradeManagementUI.js?v=1";manager.async=false;document.head.appendChild(manager);}
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
   window.ASTRA=window.ASTRA||{};window.ASTRA.tradeScreenshots={get(tradeId){return read()[tradeId]||null;},has(tradeId){return !!read()[tradeId];},saveFile,remove};
-  console.log("ASTRA Trade Screenshot Attachment v1.2 Loaded");
+  console.log("ASTRA Trade Screenshot Attachment v1.3 Loaded");
 })();
