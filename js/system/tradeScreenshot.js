@@ -1,4 +1,4 @@
-/* ASTRA TRADE SCREENSHOT ATTACHMENT v1.4
+/* ASTRA TRADE SCREENSHOT ATTACHMENT v1.5
    Chart screenshots are stored separately by trade id so journal persistence
    remains unchanged and Live/Demo/Backtest categories stay separated.
 */
@@ -19,10 +19,10 @@
   function boot(){
     if(document.body)observer.observe(document.body,{childList:true,subtree:true});
     const form=document.querySelector("#astraTradeForm");if(form)inject(form);
-    loadScript("js/system/tradeEditor.js?v=3");
+    loadScript("js/system/tradeEditor.js?v=4");
     loadScript("js/system/tradeManagementUI.js?v=2");
   }
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
   window.ASTRA=window.ASTRA||{};window.ASTRA.tradeScreenshots={get(tradeId){return read()[tradeId]||null;},has(tradeId){return !!read()[tradeId];},saveFile,remove};
-  console.log("ASTRA Trade Screenshot Attachment v1.4 Loaded");
+  console.log("ASTRA Trade Screenshot Attachment v1.5 Loaded");
 })();
