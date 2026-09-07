@@ -1,4 +1,4 @@
-/* ASTRA DEMO ACCOUNT MODULE v1.1
+/* ASTRA DEMO ACCOUNT MODULE v1.2
    Simulated brokerage ledger for demo practice.
    Backtest trades are intentionally excluded.
    Reconciles dashboard data when journal trades are added, edited, or deleted.
@@ -6,6 +6,8 @@
 const DemoAccountModule = (() => {
   const KEY = "ASTRA_DEMO_ACCOUNT";
   const STARTING_BALANCE = 10000;
+  const DAILY_LOSS_LIMIT = 2;
+  const WEEKLY_LOSS_LIMIT = 5;
 
   const defaults = {
     enabled: true,
@@ -26,7 +28,6 @@ const DemoAccountModule = (() => {
   }
 
   let account = load();
-
   function save(){ localStorage.setItem(KEY, JSON.stringify(account)); }
   function pnl(){ return account.balance - account.startingBalance; }
   function wins(){ return account.closedTrades.filter(t => Number(t.pnl || 0) > 0).length; }
@@ -56,7 +57,6 @@ const DemoAccountModule = (() => {
     monday.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
     return localDayKey(monday);
   }
-
   function calculatePeriodPL(trades, period){
     const key = period === "week" ? weekKey(Date.now()) : localDayKey(Date.now());
     return trades.reduce((sum, trade) => {
@@ -64,12 +64,18 @@ const DemoAccountModule = (() => {
       return tradeKey === key ? sum + Number(trade.pnl || 0) : sum;
     }, 0);
   }
-
   function calculatePeriodLosses(trades, period){
     const key = period === "week" ? weekKey(Date.now()) : localDayKey(Date.now());
     return trades.filter(trade => {
       const tradeKey = period === "week" ? weekKey(trade.date) : localDayKey(trade.date);
       return tradeKey === key && Number(trade.pnl || 0) < 0;
+    }).length;
+  }
+  function calculatePeriodTrades(trades, period){
+    const key = period === "week" ? weekKey(Date.now()) : localDayKey(Date.now());
+    return trades.filter(trade => {
+      const tradeKey = period === "week" ? weekKey(trade.date) : localDayKey(trade.date);
+      return tradeKey === key;
     }).length;
   }
 
@@ -87,6 +93,7 @@ const DemoAccountModule = (() => {
       dailyLosses: calculatePeriodLosses(trades, "day"),
       weeklyLosses: calculatePeriodLosses(trades, "week"),
       trades: account.closedTrades.length,
+      tradesToday: calculatePeriodTrades(trades, "day"),
       wins: wins(),
       losses: losses(),
       winRate: winRate(),
@@ -100,23 +107,25 @@ const DemoAccountModule = (() => {
   }
 
   function renderRisk(s){
-    const dailyLimit = 2;
-    const weeklyLimit = 5;
     const dailyLosses = Number(s.dailyLosses || 0);
     const weeklyLosses = Number(s.weeklyLosses || 0);
-    const dailyPct = Math.min(100, Math.round((dailyLosses / dailyLimit) * 100));
-    const riskLevel = dailyLosses >= dailyLimit || weeklyLosses >= weeklyLimit
+    const dailyPct = Math.min(100, Math.round((dailyLosses / DAILY_LOSS_LIMIT) * 100));
+    const riskLevel = dailyLosses >= DAILY_LOSS_LIMIT || weeklyLosses >= WEEKLY_LOSS_LIMIT
       ? "HIGH"
       : dailyLosses > 0 || weeklyLosses > 0
         ? "ELEVATED"
         : "LOW";
-
     const set = (id, value) => { const el=document.getElementById(id); if(el) el.textContent=value; };
     set("riskTrade", "1%");
-    set("dailyLoss", `${dailyLosses}/${dailyLimit}`);
-    set("weeklyLoss", `${weeklyLosses}/${weeklyLimit}`);
+    set("dailyLoss", `${dailyLosses}/${DAILY_LOSS_LIMIT}`);
+    set("weeklyLoss", `${weeklyLosses}/${WEEKLY_LOSS_LIMIT}`);
     set("riskLevel", riskLevel);
     set("riskPct", `${dailyPct}%`);
+    const ring=document.getElementById("riskRing");
+    if(ring){
+      ring.style.setProperty("--risk-pct", `${dailyPct}%`);
+      ring.setAttribute("aria-label", `Daily loss usage ${dailyPct}%`);
+    }
   }
 
   function render(){
@@ -125,14 +134,14 @@ const DemoAccountModule = (() => {
     set("accountBalance", money(s.balance));
     set("equity", money(s.equity));
     set("buyingPower", money(s.buyingPower));
-    set("tradesToday", s.trades);
+    set("tradesToday", s.tradesToday);
     set("winRate", `${s.winRate}%`);
 
     const pl = document.getElementById("todayPL");
     if(pl){
       pl.classList.toggle("positive", s.todayPL >= 0);
       pl.classList.toggle("negative", s.todayPL < 0);
-      pl.innerHTML = `${s.todayPL >= 0 ? "+" : "-"}$${Math.abs(s.todayPL).toFixed(2)} <small>${s.dayStartBalance ? ((s.todayPL/s.dayStartBalance)*100).toFixed(2) : "0.00"}%</small>`;
+      pl.innerHTML = `${s.todayPL >= 0 ? "+" : "-"}$${Math.abs(s.todayPL).toFixed(2)} <small>${s.startingBalance ? ((s.todayPL/s.startingBalance)*100).toFixed(2) : "0.00"}%</small>`;
     }
 
     const perf = document.getElementById("perfReturn");
@@ -147,7 +156,6 @@ const DemoAccountModule = (() => {
     if(status) status.textContent = account.enabled ? "ACTIVE ›" : "PAUSED ›";
     const msg=document.getElementById("demoAccountSummary");
     if(msg) msg.textContent = `Demo equity ${money(s.equity)} · ${s.trades} closed trade${s.trades===1?"":"s"} · ${s.winRate}% win rate`;
-
     renderRisk(s);
     document.dispatchEvent(new CustomEvent("astra:demo-account-updated", {detail:s}));
   }
@@ -176,18 +184,14 @@ const DemoAccountModule = (() => {
   }
 
   function recordClosedTrade(trade){
-    if(!account.enabled) return snapshot();
-    if(isBacktest(trade)) return snapshot();
-    reconcile();
-    return snapshot();
+    if(!account.enabled || isBacktest(trade)) return snapshot();
+    return reconcile();
   }
-
   function openPosition(position){
     if(!account.enabled) return false;
     account.openPositions.push({...position, id:position.id || `open-${Date.now()}`});
     save(); render(); return true;
   }
-
   function closePosition(id, pnlValue=0, extra={}){
     const index=account.openPositions.findIndex(p=>p.id===id);
     if(index < 0) return false;
@@ -195,13 +199,11 @@ const DemoAccountModule = (() => {
     recordClosedTrade({...position,...extra,pnl:pnlValue});
     return true;
   }
-
   function reset(){
     account={...defaults, lastReset:new Date().toISOString()};
     save(); render();
     return snapshot();
   }
-
   function setEnabled(enabled){ account.enabled=!!enabled; save(); render(); return account.enabled; }
   function getData(){ return snapshot(); }
 
@@ -210,10 +212,10 @@ const DemoAccountModule = (() => {
     document.addEventListener("astra:journal-trade-added", () => reconcile());
     document.addEventListener("astra:journal-trade-updated", () => reconcile());
     document.addEventListener("astra:journal-trade-deleted", () => reconcile());
-    console.log("ASTRA Demo Account v1.1 Loaded");
+    console.log("ASTRA Demo Account v1.2 Loaded");
   }
 
-  const api={name:"Demo Account",version:"1.1",getData,recordClosedTrade,openPosition,closePosition,reset,setEnabled,render,reconcile};
+  const api={name:"Demo Account",version:"1.2",getData,recordClosedTrade,openPosition,closePosition,reset,setEnabled,render,reconcile};
   ASTRA.registerModule("demoAccount", api);
   if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, {once:true}); else init();
   return api;
