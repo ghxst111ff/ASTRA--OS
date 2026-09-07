@@ -1,38 +1,207 @@
-/* ASTRA TRADE EDITOR v1.1
-   Lets existing Live, Demo, and Backtest journal entries be edited or deleted.
-   Existing trade ids are preserved so attached screenshots remain associated.
-   The public editor API is registered before UI boot so a non-critical boot error
-   cannot make the editor appear unavailable.
+/* ASTRA TRADE EDITOR v2.0
+   Canonical editor for saved Live, Demo, and Backtest trades.
 */
-(function(){
+(function () {
   "use strict";
-  const JOURNAL_KEY="ASTRA_JOURNAL";
-  const SCREENSHOT_KEY="ASTRA_TRADE_SCREENSHOTS";
-  const $=(s,r=document)=>r.querySelector(s);
-  const $$=(s,r=document)=>[...r.querySelectorAll(s)];
 
-  function escapeHtml(value){return String(value??"").replace(/[&<>\"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));}
-  function readTrades(){try{const data=window.ASTRA?.modules?.journal?.getData?.();if(data&&Array.isArray(data.trades))return data.trades;}catch(e){}try{const data=JSON.parse(localStorage.getItem(JOURNAL_KEY)||'{"trades":[]}');return Array.isArray(data.trades)?data.trades:[];}catch(e){return [];}}
-  function removeScreenshot(id){try{const all=JSON.parse(localStorage.getItem(SCREENSHOT_KEY)||"{}");if(all&&all[id]){delete all[id];localStorage.setItem(SCREENSHOT_KEY,JSON.stringify(all));}}catch(e){console.error("ASTRA screenshot cleanup failed",e);}}
-  function saveScreenshot(id,file,source){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onerror=reject;reader.onload=()=>{const img=new Image();img.onerror=reject;img.onload=()=>{const max=1600,scale=Math.min(1,max/Math.max(img.width,img.height));const canvas=document.createElement("canvas");canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));canvas.getContext("2d").drawImage(img,0,0,canvas.width,canvas.height);let all={};try{all=JSON.parse(localStorage.getItem(SCREENSHOT_KEY)||"{}")}catch(e){}all[id]={data:canvas.toDataURL("image/jpeg",.78),name:file.name,width:canvas.width,height:canvas.height,tradeId:id,savedAt:new Date().toISOString(),source:source||"trade"};localStorage.setItem(SCREENSHOT_KEY,JSON.stringify(all));resolve(all[id]);};img.src=reader.result;};reader.readAsDataURL(file);});}
-  function screenshot(id){try{const all=JSON.parse(localStorage.getItem(SCREENSHOT_KEY)||"{}");return all[id]||null;}catch(e){return null;}}
-  function ensureStyles(){if($("#astra-trade-editor-styles"))return;const style=document.createElement("style");style.id="astra-trade-editor-styles";style.textContent=`.astra-trade-actions{display:flex;gap:5px;align-items:center;justify-content:flex-end}.astra-trade-actions button{border:1px solid rgba(0,194,255,.35);background:#062a40;color:#a9ebff;border-radius:5px;padding:5px 7px;font-size:7px;cursor:pointer}.astra-trade-actions button[data-delete-trade]{color:#ff9ca2;border-color:rgba(255,101,109,.35)}.astra-editor-shot{max-width:100%;max-height:220px;border:1px solid rgba(0,194,255,.2);border-radius:6px;margin-top:7px}.astra-editor-current{font-size:8px;color:#62dcff;margin-top:5px}.astra-editor-danger{color:#ff9ca2;font-size:8px;margin-top:8px}`;document.head.appendChild(style);}
-  function visibleTradesForList(list){const all=readTrades();const host=list?.closest?.(".astra-live-trades");if(host){const active=host.querySelector("[data-trade-filter].active")?.dataset.tradeFilter||"all";return active==="all"?all:all.filter(t=>String(t.tradeType||t.source||"").toLowerCase()===active);}return all;}
-  function enhanceRows(){ensureStyles();$$('.astra-trade-item').forEach((row,index)=>{if(row.querySelector(".astra-trade-actions"))return;const list=row.closest(".astra-trade-list");const trades=visibleTradesForList(list);const trade=trades[index];if(!trade?.id)return;row.dataset.tradeId=trade.id;const actions=document.createElement("span");actions.className="astra-trade-actions";actions.innerHTML='<button type="button" data-edit-trade>Edit</button><button type="button" data-delete-trade>Delete</button>';row.appendChild(actions);});}
-  function openEditor(trade){ensureStyles();const isBacktest=String(trade.tradeType||trade.source||"").toLowerCase()==="backtest";const shot=screenshot(trade.id);const backdrop=document.createElement("div");backdrop.className="astra-modal-backdrop";backdrop.innerHTML=`<div class="astra-modal" role="dialog" aria-modal="true"><h2>EDIT ${isBacktest?"BACKTEST ":""}TRADE</h2><p>Update this saved entry. Its trade ID stays unchanged.</p><form class="astra-form" id="astraEditTradeForm"><label>SYMBOL<input name="pair" value="${escapeHtml(trade.pair||"")}" required></label><label>DIRECTION<select name="direction"><option value="Buy" ${trade.direction==="Buy"?"selected":""}>Buy</option><option value="Sell" ${trade.direction==="Sell"?"selected":""}>Sell</option></select></label>${isBacktest?`<label>TEST DATE<input name="testDate" type="date" value="${escapeHtml(trade.testDate||"")}"></label><label>TIMEFRAME<input name="timeframe" value="${escapeHtml(trade.timeframe||"")}" placeholder="1H"></label><label>SETUP<input name="setup" value="${escapeHtml(trade.setup||"")}"></label><label>SESSION<input name="session" value="${escapeHtml(trade.session||"")}"></label><label>ENTRY<input name="entry" type="number" step="any" value="${Number(trade.entry||0)||""}"></label><label>STOP LOSS<input name="stopLoss" type="number" step="any" value="${Number(trade.stopLoss||0)||""}"></label><label>TAKE PROFIT<input name="takeProfit" type="number" step="any" value="${Number(trade.takeProfit||0)||""}"></label><label>R RESULT<input name="rMultiple" type="number" step="0.01" value="${Number(trade.rMultiple||0)||""}"></label>`:""}<label>RESULT<select name="result"><option value="win" ${trade.result==="win"?"selected":""}>Win</option><option value="loss" ${trade.result==="loss"?"selected":""}>Loss</option><option value="breakeven" ${trade.result==="breakeven"?"selected":""}>Breakeven</option></select></label><label>P/L<input name="pnl" type="number" step="0.01" value="${Number(trade.pnl||0)||""}"></label><label class="full">NOTES<textarea name="notes">${escapeHtml(trade.notes||"")}</textarea></label>${isBacktest?`<label class="full">LESSON LEARNED<textarea name="lesson">${escapeHtml(trade.lesson||"")}</textarea></label>`:""}<label class="full">CHART SCREENSHOT<input name="tradeScreenshot" type="file" accept="image/png,image/jpeg,image/webp">${shot?`<div class="astra-editor-current">Current screenshot: ${escapeHtml(shot.name||"attached")}</div><img class="astra-editor-shot" src="${shot.data}" alt="Current trade screenshot">`:"<div class="astra-editor-current">No screenshot attached.</div>"}<small style="display:block;margin-top:5px;color:#6f8995;font-size:8px">Choose a new image to replace the current screenshot.</small></label><div class="astra-modal-actions full"><button type="button" class="secondary" data-close-editor>CANCEL</button><button type="submit">SAVE CHANGES</button></div></form></div>`;document.body.appendChild(backdrop);backdrop.addEventListener("click",e=>{if(e.target===backdrop)backdrop.remove();});const form=$("#astraEditTradeForm",backdrop);form.addEventListener("submit",async e=>{e.preventDefault();const d=new FormData(form);const changes={pair:String(d.get("pair")||"").trim().toUpperCase(),direction:d.get("direction"),result:d.get("result"),pnl:Number(d.get("pnl")||0),notes:String(d.get("notes")||"").trim()};if(isBacktest){changes.testDate=d.get("testDate")||"";changes.timeframe=String(d.get("timeframe")||"").trim();changes.setup=String(d.get("setup")||"").trim();changes.session=String(d.get("session")||"").trim();changes.entry=Number(d.get("entry")||0);changes.stopLoss=Number(d.get("stopLoss")||0);changes.takeProfit=Number(d.get("takeProfit")||0);changes.rMultiple=Number(d.get("rMultiple")||0);changes.lesson=String(d.get("lesson")||"").trim();}let updated=null;try{updated=window.ASTRA?.modules?.journal?.updateTrade?.(trade.id,changes);}catch(err){console.error("ASTRA trade update failed",err);}if(!updated){alert("ASTRA could not update this trade.");return;}const file=form.querySelector('input[name="tradeScreenshot"]')?.files?.[0];if(file){try{await saveScreenshot(trade.id,file,trade.tradeType||trade.source||"trade");}catch(err){console.error("ASTRA edited screenshot save failed",err);alert("Trade was updated, but the new screenshot could not be saved.");}}backdrop.remove();toast("Trade updated.");});$("[data-close-editor]",backdrop).addEventListener("click",()=>backdrop.remove());}
-  function toast(message){const old=$(".astra-toast");if(old)old.remove();const el=document.createElement("div");el.className="astra-toast";el.textContent=message;document.body.appendChild(el);setTimeout(()=>el.remove(),2200);}
-  function deleteTrade(id){const trade=readTrades().find(t=>String(t.id)===String(id));if(!trade)return;if(!confirm(`Delete ${trade.pair||"this trade"}? This cannot be undone.`))return;let removed=null;try{removed=window.ASTRA?.modules?.journal?.deleteTrade?.(id);}catch(err){console.error("ASTRA trade delete failed",err);}if(!removed){alert("ASTRA could not delete this trade.");return;}removeScreenshot(id);toast("Trade deleted.");}
+  var JOURNAL_KEY = "ASTRA_JOURNAL";
+  var SCREENSHOT_KEY = "ASTRA_TRADE_SCREENSHOTS";
 
-  window.ASTRA=window.ASTRA||{};
-  window.ASTRA.tradeEditor={
-    open(tradeId){const trade=readTrades().find(t=>String(t.id)===String(tradeId));if(trade)openEditor(trade);else console.warn("ASTRA trade editor: trade not found",tradeId);},
-    delete(tradeId){deleteTrade(tradeId);},
-    ready:true
+  function qs(selector, root) {
+    return (root || document).querySelector(selector);
+  }
+
+  function readTrades() {
+    try {
+      if (window.ASTRA && window.ASTRA.modules && window.ASTRA.modules.journal && window.ASTRA.modules.journal.getData) {
+        var data = window.ASTRA.modules.journal.getData();
+        if (data && Array.isArray(data.trades)) return data.trades;
+      }
+    } catch (e) {}
+    try {
+      var saved = JSON.parse(localStorage.getItem(JOURNAL_KEY) || '{"trades":[]}');
+      return Array.isArray(saved.trades) ? saved.trades : [];
+    } catch (e2) {
+      return [];
+    }
+  }
+
+  function esc(value) {
+    return String(value == null ? "" : value).replace(/[&<>\"]/g, function (ch) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch];
+    });
+  }
+
+  function getScreenshot(id) {
+    try {
+      var all = JSON.parse(localStorage.getItem(SCREENSHOT_KEY) || "{}");
+      return all[id] || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function removeScreenshot(id) {
+    try {
+      var all = JSON.parse(localStorage.getItem(SCREENSHOT_KEY) || "{}");
+      delete all[id];
+      localStorage.setItem(SCREENSHOT_KEY, JSON.stringify(all));
+    } catch (e) {}
+  }
+
+  function saveScreenshot(id, file, source) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onerror = reject;
+      reader.onload = function () {
+        var img = new Image();
+        img.onerror = reject;
+        img.onload = function () {
+          var max = 1600;
+          var scale = Math.min(1, max / Math.max(img.width, img.height));
+          var canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(img.width * scale));
+          canvas.height = Math.max(1, Math.round(img.height * scale));
+          canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+          var all = {};
+          try { all = JSON.parse(localStorage.getItem(SCREENSHOT_KEY) || "{}"); } catch (e) {}
+          all[id] = {
+            data: canvas.toDataURL("image/jpeg", 0.78),
+            name: file.name,
+            width: canvas.width,
+            height: canvas.height,
+            tradeId: id,
+            savedAt: new Date().toISOString(),
+            source: source || "trade"
+          };
+          localStorage.setItem(SCREENSHOT_KEY, JSON.stringify(all));
+          resolve(all[id]);
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function styles() {
+    if (qs("#astra-trade-editor-styles")) return;
+    var style = document.createElement("style");
+    style.id = "astra-trade-editor-styles";
+    style.textContent = ".astra-trade-editor-backdrop{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:18px}.astra-trade-editor{width:min(560px,96vw);max-height:90vh;overflow:auto;background:#071722;border:1px solid rgba(0,194,255,.35);border-radius:10px;padding:18px;color:#d9f6ff;box-shadow:0 20px 60px rgba(0,0,0,.55)}.astra-trade-editor h2{margin:0 0 6px;font-size:16px}.astra-trade-editor p{font-size:9px;color:#829aa7}.astra-trade-editor label{display:block;margin:9px 0;font-size:8px;color:#a9ebff}.astra-trade-editor input,.astra-trade-editor select,.astra-trade-editor textarea{box-sizing:border-box;width:100%;margin-top:5px;padding:8px;background:#04111a;border:1px solid rgba(0,194,255,.22);border-radius:5px;color:#e8fbff}.astra-trade-editor textarea{min-height:70px}.astra-trade-editor img{max-width:100%;max-height:220px;margin-top:7px;border-radius:6px}.astra-trade-editor-actions{display:flex;justify-content:flex-end;gap:7px;margin-top:14px}.astra-trade-editor-actions button{padding:8px 12px;border-radius:5px;border:1px solid rgba(0,194,255,.35);background:#062a40;color:#a9ebff;cursor:pointer}";
+    document.head.appendChild(style);
+  }
+
+  function openEditor(id) {
+    var trade = readTrades().find(function (item) { return String(item.id) === String(id); });
+    if (!trade) return;
+
+    styles();
+    var old = qs(".astra-trade-editor-backdrop");
+    if (old) old.remove();
+
+    var isBacktest = String(trade.tradeType || trade.source || "").toLowerCase() === "backtest";
+    var shot = getScreenshot(trade.id);
+    var backdrop = document.createElement("div");
+    backdrop.className = "astra-trade-editor-backdrop";
+
+    var extra = "";
+    if (isBacktest) {
+      extra = "<label>TEST DATE<input name='testDate' type='date' value='" + esc(trade.testDate) + "'></label>" +
+        "<label>TIMEFRAME<input name='timeframe' value='" + esc(trade.timeframe) + "'></label>" +
+        "<label>SETUP<input name='setup' value='" + esc(trade.setup) + "'></label>" +
+        "<label>SESSION<input name='session' value='" + esc(trade.session) + "'></label>" +
+        "<label>ENTRY<input name='entry' type='number' step='any' value='" + esc(trade.entry) + "'></label>" +
+        "<label>STOP LOSS<input name='stopLoss' type='number' step='any' value='" + esc(trade.stopLoss) + "'></label>" +
+        "<label>TAKE PROFIT<input name='takeProfit' type='number' step='any' value='" + esc(trade.takeProfit) + "'></label>" +
+        "<label>R RESULT<input name='rMultiple' type='number' step='0.01' value='" + esc(trade.rMultiple) + "'></label>" +
+        "<label>LESSON LEARNED<textarea name='lesson'>" + esc(trade.lesson) + "</textarea></label>";
+    }
+
+    backdrop.innerHTML = "<div class='astra-trade-editor'><h2>EDIT " + (isBacktest ? "BACKTEST " : "") + "TRADE</h2>" +
+      "<p>Update this saved trade. The existing trade ID stays unchanged.</p>" +
+      "<form id='astraTradeEditForm'>" +
+      "<label>SYMBOL<input name='pair' required value='" + esc(trade.pair) + "'></label>" +
+      "<label>DIRECTION<select name='direction'><option value='Buy' " + (trade.direction === "Buy" ? "selected" : "") + ">Buy</option><option value='Sell' " + (trade.direction === "Sell" ? "selected" : "") + ">Sell</option></select></label>" +
+      extra +
+      "<label>RESULT<select name='result'><option value='win' " + (trade.result === "win" ? "selected" : "") + ">Win</option><option value='loss' " + (trade.result === "loss" ? "selected" : "") + ">Loss</option><option value='breakeven' " + (trade.result === "breakeven" ? "selected" : "") + ">Breakeven</option></select></label>" +
+      "<label>P/L<input name='pnl' type='number' step='0.01' value='" + esc(trade.pnl) + "'></label>" +
+      "<label>NOTES<textarea name='notes'>" + esc(trade.notes) + "</textarea></label>" +
+      "<label>CHART SCREENSHOT<input name='tradeScreenshot' type='file' accept='image/png,image/jpeg,image/webp'>" +
+      (shot ? "<div style='font-size:8px;color:#62dcff;margin-top:5px'>Current: " + esc(shot.name || "attached") + "</div><img src='" + shot.data + "' alt='Current trade screenshot'>" : "<div style='font-size:8px;color:#829aa7;margin-top:5px'>No screenshot attached.</div>") +
+      "</label><div class='astra-trade-editor-actions'><button type='button' data-editor-cancel>CANCEL</button><button type='submit'>SAVE CHANGES</button></div></form></div>";
+
+    document.body.appendChild(backdrop);
+    backdrop.addEventListener("click", function (event) {
+      if (event.target === backdrop) backdrop.remove();
+    });
+
+    qs("[data-editor-cancel]", backdrop).addEventListener("click", function () { backdrop.remove(); });
+    qs("#astraTradeEditForm", backdrop).addEventListener("submit", function (event) {
+      event.preventDefault();
+      var form = event.target;
+      var data = new FormData(form);
+      var changes = {
+        pair: String(data.get("pair") || "").trim().toUpperCase(),
+        direction: data.get("direction"),
+        result: data.get("result"),
+        pnl: Number(data.get("pnl") || 0),
+        notes: String(data.get("notes") || "").trim()
+      };
+      if (isBacktest) {
+        changes.testDate = data.get("testDate") || "";
+        changes.timeframe = String(data.get("timeframe") || "").trim();
+        changes.setup = String(data.get("setup") || "").trim();
+        changes.session = String(data.get("session") || "").trim();
+        changes.entry = Number(data.get("entry") || 0);
+        changes.stopLoss = Number(data.get("stopLoss") || 0);
+        changes.takeProfit = Number(data.get("takeProfit") || 0);
+        changes.rMultiple = Number(data.get("rMultiple") || 0);
+        changes.lesson = String(data.get("lesson") || "").trim();
+      }
+
+      var updated = null;
+      try {
+        if (window.ASTRA && window.ASTRA.modules && window.ASTRA.modules.journal && window.ASTRA.modules.journal.updateTrade) {
+          updated = window.ASTRA.modules.journal.updateTrade(trade.id, changes);
+        }
+      } catch (err) {
+        console.error("ASTRA trade update failed", err);
+      }
+      if (!updated) {
+        alert("ASTRA could not update this trade.");
+        return;
+      }
+
+      var file = qs("input[name='tradeScreenshot']", form).files[0];
+      if (file) {
+        saveScreenshot(trade.id, file, trade.tradeType || trade.source || "trade").catch(function (err) {
+          console.error("ASTRA screenshot update failed", err);
+        });
+      }
+      backdrop.remove();
+    });
+  }
+
+  function deleteTrade(id) {
+    var trade = readTrades().find(function (item) { return String(item.id) === String(id); });
+    if (!trade) return;
+    if (!window.confirm("Delete " + (trade.pair || "this trade") + "? This cannot be undone.")) return;
+    try {
+      if (window.ASTRA && window.ASTRA.modules && window.ASTRA.modules.journal && window.ASTRA.modules.journal.deleteTrade) {
+        window.ASTRA.modules.journal.deleteTrade(id);
+        removeScreenshot(id);
+      }
+    } catch (err) {
+      console.error("ASTRA trade delete failed", err);
+    }
+  }
+
+  window.ASTRA = window.ASTRA || {};
+  window.ASTRA.tradeEditor = {
+    ready: true,
+    open: openEditor,
+    delete: deleteTrade
   };
 
-  document.addEventListener("click",event=>{const edit=event.target.closest?.("[data-edit-trade]");if(edit){event.preventDefault();event.stopPropagation();const row=edit.closest(".astra-trade-item");const id=row?.dataset.tradeId;const trade=readTrades().find(t=>String(t.id)===String(id));if(trade)openEditor(trade);return;}const del=event.target.closest?.("[data-delete-trade]");if(del){event.preventDefault();event.stopPropagation();const row=del.closest(".astra-trade-item");if(row?.dataset.tradeId)deleteTrade(row.dataset.tradeId);return;}enhanceRows();},true);
-  const observer=new MutationObserver(()=>enhanceRows());
-  function boot(){try{ensureStyles();enhanceRows();if(document.body)observer.observe(document.body,{childList:true,subtree:true});document.addEventListener("astra:journal-trade-added",enhanceRows);document.addEventListener("astra:journal-trade-updated",enhanceRows);document.addEventListener("astra:journal-trade-deleted",enhanceRows);}catch(err){console.error("ASTRA trade editor boot failed",err);}}
-  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
-  console.log("ASTRA Trade Editor v1.1 Loaded");
+  console.log("ASTRA Trade Editor v2.0 Loaded");
 })();
