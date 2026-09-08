@@ -1,11 +1,11 @@
 /* =========================================
-   ASTRA v2.2 RESPONSE MODULE
+   VEGA v2.3 RESPONSE MODULE
    Readable conversational rendering
 ========================================= */
 
 const ResponseModule = {
     name: "Response System",
-    version: "2.2",
+    version: "2.3",
 
     escapeHTML(value) {
         return String(value ?? "")
@@ -80,11 +80,11 @@ const ResponseModule = {
         const text = String(message ?? "");
 
         if (!output) {
-            console.log("ASTRA:", text);
+            console.log("VEGA:", text);
         } else {
             const wrapper = document.createElement("div");
             wrapper.className = "astra-message";
-            wrapper.innerHTML = `<div class="message-speaker">ASTRA</div><div class="message-body">${this.format(text)}</div>`;
+            wrapper.innerHTML = `<div class="message-speaker">VEGA</div><div class="message-body">${this.format(text)}</div>`;
             output.appendChild(wrapper);
             output.scrollTop = output.scrollHeight;
             this.animate();
