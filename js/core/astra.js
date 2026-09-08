@@ -1,11 +1,12 @@
 /* =========================================
-   ASTRA v2.0 CORE ENGINE
+   VEGA v2.0 CORE ENGINE
+   Public identity: VEGA
+   Compatibility namespace: ASTRA
 ========================================= */
- 
 
 const ASTRA = {
 
-    name:"ASTRA",
+    name:"VEGA",
 
     version:"2.0",
 
@@ -21,7 +22,7 @@ const ASTRA = {
         this.modules[name] = module;
 
         console.log(
-            "ASTRA MODULE LOADED:",
+            "VEGA MODULE LOADED:",
             name
         );
 
@@ -29,10 +30,6 @@ const ASTRA = {
 
 
     registerCommand(trigger,action){
-      
-      
-      
-      
 
         this.commands.push({
 
@@ -72,12 +69,12 @@ const ASTRA = {
 
 };
 
-// Expose the core on window as well. ASTRA is declared with const, which does not
-// automatically become window.ASTRA; older UI scripts use the window reference.
+// VEGA is the public identity. Keep window.ASTRA as a compatibility alias so
+// existing modules continue working without a breaking namespace migration.
+window.VEGA = ASTRA;
 window.ASTRA = ASTRA;
 
 
-
 console.log(
-"ASTRA CORE v2.0 ONLINE"
+"VEGA CORE v2.0 ONLINE"
 );
