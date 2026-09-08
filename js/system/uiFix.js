@@ -1,4 +1,4 @@
-/* ASTRA UI FIX v2.2
+/* ASTRA UI FIX v2.3
    Module views and dashboard routing only.
    Conversation submission is owned by runtimeIntegrity.js.
    Conversation layout/voice control is owned by conversationLayout.js.
@@ -45,5 +45,9 @@ window.addEventListener("DOMContentLoaded", () => {
         if(name==="export"){const payload={memory:ASTRA.modules.memory?.database||null,journal:ASTRA.modules.journal?.getData?.()||null,performance:ASTRA.modules.performance?.getData?.()||null,coach:ASTRA.modules.coach?.snapshot?.()||null};const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});const link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download="astra-data-export.json";link.click();URL.revokeObjectURL(link.href);}
         if(name==="verify"){const verifier=ASTRA.modules.systemVerifier||ASTRA.modules.verification;if(verifier?.verifyAll){verifier.verifyAll();}else if(ASTRA.modules.verification?.verify){AstraReply("Verification Engine is online.");}else AstraReply("Verification Engine is unavailable.");}
     });
-    console.log("ASTRA UI Fix v2.2 Loaded — module views + dashboard routing + mentor controls");
+    /* Frameless ASTRA CORE: remove the old message-panel footprint and reclaim its grid row. */
+    const coreStyle=document.createElement("style");
+    coreStyle.textContent=`.dashboard-grid{grid-template-rows:178px 168px!important}.astra-says{display:none!important}.core-stage{background:transparent!important;border:0!important;outline:0!important;box-shadow:none!important;padding:0!important}.core-stage:before{border:0!important;outline:0!important}`;
+    document.head.appendChild(coreStyle);
+    console.log("ASTRA UI Fix v2.3 Loaded — frameless core + module views + dashboard routing + mentor controls");
 });
