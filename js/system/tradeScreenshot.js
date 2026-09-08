@@ -1,4 +1,4 @@
-/* ASTRA TRADE SCREENSHOT ATTACHMENT v2.1 */
+/* ASTRA TRADE SCREENSHOT ATTACHMENT v2.2 */
 (function () {
   "use strict";
   var KEY = "ASTRA_TRADE_SCREENSHOTS";
@@ -103,7 +103,7 @@
     if (document.getElementById("astraDashboardSpacingFix")) return;
     var style = document.createElement("style");
     style.id = "astraDashboardSpacingFix";
-    style.textContent = "/* ASTRA reference dashboard: keep quick actions lower beneath the core. */ .quick-actions{transform:translateY(26px)!important;position:relative;z-index:5}.conversation-dock{margin-top:38px!important}";
+    style.textContent = "/* ASTRA reference dashboard: keep quick actions lower beneath the core. */ .quick-actions{transform:translateY(35px)!important;position:relative;z-index:5}.conversation-dock{margin-top:47px!important}";
     document.head.appendChild(style);
   }
 
@@ -125,5 +125,5 @@
 
   window.ASTRA = window.ASTRA || {};
   window.ASTRA.tradeScreenshots = { get: function (id) { return read()[id] || null; }, has: function (id) { return !!read()[id]; }, saveFile: saveFile, remove: remove };
-  console.log("ASTRA Trade Screenshot Attachment v2.1 Loaded — dashboard spacing aligned");
+  console.log("ASTRA Trade Screenshot Attachment v2.2 Loaded — dashboard spacing set to 35px");
 })();
