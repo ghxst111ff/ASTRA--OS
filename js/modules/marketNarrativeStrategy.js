@@ -23,7 +23,19 @@
       "Invalidation — What would prove my idea wrong?"
     ],
     timeframes:{
-      weekly:{role:"Bigger context — not execution",rules:["Identify the most recent significant leg of price.","Define the broader trading range and important areas.","Mark major supply, demand, liquidity, and potential directional objectives.","Build the broad context for the week.","I do not trade from the Weekly timeframe."]},
+      weekly:{
+        role:"Narrative starting point — establish the week's range and scenarios; not execution",
+        rules:[
+          "Start the narrative-building process on the Weekly timeframe regardless of the execution timeframe.",
+          "Focus on the most recent significant leg of price rather than looking too far back at massive long-term trends.",
+          "Use the recent swing low to swing high, or swing high to swing low, to define a confined Weekly trading range.",
+          "Use the Weekly range to establish directional areas of interest and the initial context for the week.",
+          "Mark important supply, demand, liquidity, and potential directional objectives within the Weekly context.",
+          "Build if-this-then-that scenarios for the week: pullback and buy/sell, direct move, or break of structure that changes the narrative into the following week.",
+          "Look left for potential upside and downside targets so the market map is prepared for larger moves caused by data or news.",
+          "The Weekly timeframe establishes the narrative; it is not an execution timeframe."
+        ]
+      },
       daily:{role:"Refine the narrative — not execution",rules:["Refine the Weekly context.","Identify important points of interest.","Mark liquidity, supply and demand, and imbalances.","Identify where price may be drawn.","Build if-this-then-that scenarios."]},
       fourHour:{role:"Build the main trading narrative",rules:["Read the current market structure.","Identify the main direction and delivery.","Identify structural shifts and important areas of interest.","Build the main trading scenarios."]},
       oneHourThirtyMinute:{role:"Find fractal opportunities",rules:["Look inside the larger narrative for smaller opportunities.","Apply the same analysis flow.","Identify short-term moves, pullbacks, liquidity, and areas of interest."]},
@@ -38,11 +50,13 @@
     coreRule:"Higher timeframes build the story. Lower timeframes reveal opportunities. The 15M and 5M provide confirmation for execution."
   };
   strategy.marketNarrative=narrative;
-  strategy.foundation.timeframes="Weekly → Daily → 4H → 1H/30M → 15M/5M, with the same fractal analysis flow on every timeframe";
+  strategy.foundation.timeframes="Weekly → Daily → 4H → 1H/30M → 15M/5M, with Weekly establishing the range and opening narrative before lower-timeframe refinement";
   strategy.foundation.process=[
-    "Build the market narrative from the higher timeframe down.",
-    "Weekly establishes the bigger context and recent significant leg.",
-    "Daily refines the context with liquidity, supply and demand, imbalances, and points of interest.",
+    "Start narrative building on the Weekly timeframe regardless of the execution timeframe.",
+    "Use the most recent significant Weekly leg to define a confined trading range and directional areas of interest.",
+    "Look left for potential upside and downside targets and prepare scenarios for larger data/news-driven moves.",
+    "Build if-this-then-that Weekly scenarios: pullback, direct move, or structure break that changes the narrative.",
+    "Daily refines the Weekly context with liquidity, supply and demand, imbalances, and points of interest.",
     "4H builds the main market narrative and scenarios.",
     "1H and 30M reveal fractal opportunities inside the larger narrative.",
     "15M and 5M provide confirmation and execution.",
@@ -53,7 +67,7 @@
   strategy.timeframeFlow={
     sameFlow:narrative.fractalAnalysisFlow,
     roles:{
-      weekly:"Bigger context and recent significant leg — no execution",
+      weekly:"Narrative starting point: recent leg, Weekly range, directional areas, scenarios, and left-side targets — no execution",
       daily:"Refine the Weekly context and build scenarios — no execution",
       fourHour:"Build the main trading narrative",
       oneHourThirtyMinute:"Find fractal opportunities inside the larger narrative",
@@ -63,6 +77,7 @@
     scenarioRules:narrative.scenarioRules
   };
   strategy.technicalAnalysis.primarySetup.unshift(
+    "My market narrative starts on the Weekly timeframe: recent significant leg → Weekly trading range → directional areas → if-this-then-that scenarios → left-side targets.",
     "My market narrative is built top-down: Weekly context → Daily refinement → 4H main narrative → 1H/30M fractal opportunities → 15M/5M confirmation and execution.",
     "I use if-this-then-that scenarios instead of blind predictions."
   );
