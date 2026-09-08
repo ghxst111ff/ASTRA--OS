@@ -1,0 +1,95 @@
+/* ASTRA DASHBOARD REFERENCE UI
+   Visual layer only. Preserves existing dashboard behavior and module ownership.
+*/
+
+/* Wide reference composition */
+.dashboard-grid{
+  grid-template-columns:minmax(280px,1fr) minmax(430px,1.55fr) minmax(280px,1fr)!important;
+  grid-template-rows:190px 178px!important;
+  gap:12px 14px!important;
+  max-width:1180px!important;
+  margin:0 auto!important;
+}
+
+/* Keep the ASTRA core floating with no panel footprint */
+.core-stage{
+  background:transparent!important;
+  border:0!important;
+  outline:0!important;
+  box-shadow:none!important;
+  padding:0!important;
+  overflow:visible!important;
+}
+.core-stage:before{
+  width:560px!important;
+  height:560px!important;
+  border:0!important;
+  background:radial-gradient(circle,rgba(0,166,255,.16),rgba(0,80,160,.055) 30%,transparent 67%)!important;
+}
+.orbital{
+  width:410px!important;
+  height:410px!important;
+}
+.core-circle{
+  width:156px!important;
+  height:156px!important;
+}
+.core-circle span{
+  font-size:27px!important;
+}
+.orbit-a{width:202px!important;height:202px!important}
+.orbit-b{width:268px!important;height:268px!important}
+.orbit-c{width:332px!important;height:332px!important}
+.orbit-d{width:392px!important;height:392px!important}
+
+/* Reference card proportions */
+.plan-panel,.performance-panel,.account-panel,.risk-panel{
+  min-height:100%;
+}
+.panel{
+  border-color:rgba(79,166,208,.24)!important;
+  box-shadow:0 12px 30px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.025),0 0 28px rgba(0,130,190,.045)!important;
+}
+
+/* Action row sits cleanly below the orbital composition */
+.quick-actions{
+  max-width:1180px!important;
+  margin:12px auto 0!important;
+  gap:11px!important;
+}
+.quick-actions button{
+  min-width:92px;
+  padding:9px 18px!important;
+}
+
+/* Bottom conversation console matches the wide reference card */
+.conversation-dock{
+  max-width:1080px!important;
+  margin:54px auto 0!important;
+}
+
+/* Ensure the old ASTRA SAYS element can never leave a visual footprint */
+.astra-says{
+  display:none!important;
+  width:0!important;
+  height:0!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+
+@media(max-width:900px){
+  .dashboard-grid{grid-template-columns:1fr 1fr!important;grid-template-rows:auto!important}
+  .core-stage{grid-column:1/3!important;grid-row:1!important;height:330px!important}
+  .orbital{transform:scale(.82)!important}
+  .conversation-dock{margin-top:28px!important}
+}
+
+@media(max-width:620px){
+  .dashboard-grid{display:flex!important;flex-direction:column!important}
+  .core-stage{height:270px!important}
+  .orbital{transform:scale(.65)!important}
+  .conversation-dock{margin-top:24px!important}
+}
