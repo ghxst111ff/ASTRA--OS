@@ -1,7 +1,8 @@
 /* =========================================
-   ASTRA NATURAL INTENT ENGINE v4.0
+   ASTRA NATURAL INTENT ENGINE v4.1
    Conversational routing — exact commands are optional
    Intent is inferred from meaning + context before command matching.
+   Strategy questions stay conversational so VEGA can answer them.
 ========================================= */
 const NaturalIntent = (() => {
     const intents = [
@@ -49,9 +50,6 @@ const NaturalIntent = (() => {
         const text = normalize(message);
         if (!text) return { intent: "empty", confidence: 1 };
 
-        // Research is semantic/slot based and is always checked before legacy routing.
-        // This means "what's coming for the pound?" and "red folder news for GBP"
-        // are the same intent even though the wording is different.
         const research = ASTRA.modules.research;
         if (research?.isResearchRequest?.(message)) {
             const classification = research.classify(message);
@@ -68,8 +66,6 @@ const NaturalIntent = (() => {
             if (confidence > best.confidence) best = { intent: candidate.name, confidence };
         }
 
-        // Intent routing should help the conversation, not hijack it. Ambiguous
-        // language falls through to the AI gateway instead of demanding a command.
         if (best.confidence < .66) return { intent: "conversation", confidence: .5 };
         return best;
     }
@@ -77,6 +73,14 @@ const NaturalIntent = (() => {
     function handle(message) {
         const result = resolve(message);
         const m = ASTRA.modules;
+        const text = normalize(message);
+
+        // Greetings must always produce a visible response without depending on
+        // research-module loading or the external AI gateway.
+        if (/^(hello|hi|hey)(\s+vega)?[.!?]*$/.test(text) || /^(hello|hi|hey)\s+vega\s*[.!?]*$/.test(text)) {
+            AstraReply("Hello Jay. VEGA is online. What are we working on?");
+            return true;
+        }
 
         switch (result.intent) {
             case "web_research": m.research?.ask?.(message, { classification: result.classification }); return true;
@@ -101,7 +105,17 @@ const NaturalIntent = (() => {
             case "performance": m.performance?.show?.(); return true;
             case "risk": m.risk?.show?.(); return true;
             case "psychology": m.psychology?.show?.(); return true;
-            case "strategy": m.trading?.show?.(); return true;
+            case "strategy":
+                // A question about the trading system is a conversation, not a
+                // dashboard-navigation command. Send it through the AI gateway
+                // so the canonical trading strategy is injected and the user's
+                // requested detail level (including "full version") is honored.
+                if (/\b(what|tell|explain|describe|give|show|teach|full|complete|details?)\b/.test(text) && m.ai?.ask) {
+                    m.ai.ask(message, { trading: true });
+                    return true;
+                }
+                m.trading?.show?.();
+                return true;
             case "api_status": AstraReply(JSON.stringify(m.api?.status?.() || { configured: false }, null, 2)); return true;
             case "module_status": AstraReply(JSON.stringify(m.moduleManager?.list?.() || [], null, 2)); return true;
             case "memory": if (m.memory?.show) { m.memory.show(); return true; } break;
@@ -109,8 +123,8 @@ const NaturalIntent = (() => {
         return false;
     }
 
-    return { name: "Natural Intent Engine", version: "4.0", normalize, resolve, handle };
+    return { name: "Natural Intent Engine", version: "4.1", normalize, resolve, handle };
 })();
 
 ASTRA.registerModule("naturalIntent", NaturalIntent);
-console.log("ASTRA Natural Intent Engine v4.0 Loaded");
+console.log("ASTRA Natural Intent Engine v4.1 Loaded — strategy questions stay conversational");
