@@ -1,9 +1,9 @@
 /* =========================================================
-   ASTRA VOICE / CONVERSATION ENGINE v2.8
+   ASTRA VOICE / CONVERSATION ENGINE v2.9
    Push-to-talk microphone + independent speech output control.
-   Improvement: normalize common trading speech variants after
-   recognition so domain phrases remain stable without changing
-   the underlying trading logic.
+   Improvement: phrase-aware finalization for normal-speed speech.
+   Recognition remains responsible for transcription; normalization
+   only repairs high-confidence trading phrase variants.
 ========================================================= */
 const VoiceModule = (() => {
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -13,7 +13,7 @@ const VoiceModule = (() => {
     let pendingTranscript="",pendingTimer=null;
     const STORAGE={voice:"ASTRA_VOICE_NAME",provider:"ASTRA_VOICE_PROVIDER",rate:"ASTRA_VOICE_RATE",pitch:"ASTRA_VOICE_PITCH",ttsPath:"ASTRA_VOICE_TTS_PATH",output:"ASTRA_VOICE_OUTPUT"};
     const settings={provider:localStorage.getItem(STORAGE.provider)||"auto",voiceName:localStorage.getItem(STORAGE.voice)||"",rate:Number(localStorage.getItem(STORAGE.rate)||0.96),pitch:Number(localStorage.getItem(STORAGE.pitch)||1),ttsPath:localStorage.getItem(STORAGE.ttsPath)||"/tts",output:localStorage.getItem(STORAGE.output)!=="off"};
-    const TRADING_TERMS=["weekly","daily","four hour","4h","one hour","1h","thirty minute","30m","fifteen minute","15m","five minute","5m","recent leg","leg of price action","price action","market structure","structure","higher timeframe","lower timeframe","supply and demand","supply","demand","liquidity","equal highs","equal lows","imbalance","displacement","momentum","narrative","delivery","fractal","break of structure","bos","change of character","choch","confirmation","invalidation","scenario","buy","sell","entry","target","range","swing high","swing low","high","low","bullish","bearish"];
+    const TRADING_TERMS=["weekly","daily","four hour","4h","one hour","1h","thirty minute","30m","fifteen minute","15m","five minute","5m","recent leg","leg of price action","price action","market structure","structure","higher timeframe","lower timeframe","supply and demand","supply","demand","liquidity","equal highs","equal lows","imbalance","displacement","momentum","narrative","delivery","fractal","break of structure","bos","change of character","choch","confirmation","invalidation","scenario","bullish","bearish","buy","sell","entry","target","range","swing high","swing low","high","low"];
     const supported=()=>!!Recognition;
 
     function normalizeTradingTranscript(text){
@@ -33,11 +33,9 @@ const VoiceModule = (() => {
             [/\blegal(?=\s+(?:price|market|structure|leg|of)\b)/gi,"leg"],
             [/\bup bully\b/gi,"bullish"],
             [/\bup bull(?:y|ish)?\b/gi,"bullish"],
-            [/\bup bullish\b/gi,"bullish"],
             [/\bbull(y|ies)\b/gi,"bullish"],
-            [/\bbear(y|ies)\b/gi,"bearish"],
             [/\bdown bear(?:y|ish)?\b/gi,"bearish"],
-            [/\bfor (?:the|a) recent leg\b/gi,"for the recent leg"],
+            [/\bbear(y|ies)\b/gi,"bearish"],
             [/\bfour\s*hour(?:s)?\b/gi,"4H"],
             [/\bone\s*hour(?:s)?\b/gi,"1H"],
             [/\bthirty\s*minute(?:s)?\b/gi,"30M"],
@@ -65,7 +63,7 @@ const VoiceModule = (() => {
     async function speak(text){if(!settings.output)return false;const chunks=splitForConversation(text);if(!chunks.length)return false;stopSpeaking({ignoreMs:700});if(settings.provider==="gateway"){const ok=await remoteSpeak(cleanForSpeech(text));if(ok)return true;}speechQueue=chunks.slice(1).map((text,i)=>({text,pause:i===0?220:160}));queueRunning=true;return nativeSpeakChunk(chunks[0]);}
     function commitTranscript(text){const transcript=normalizeTradingTranscript(text);if(!transcript)return false;const now=Date.now();if(processingTranscript||(transcript.toLowerCase()===lastTranscript.toLowerCase()&&now-lastTranscriptAt<1200))return false;processingTranscript=true;lastTranscript=transcript;lastTranscriptAt=now;try{ASTRA.modules.response?.user?.(transcript);let handled=false;if(ASTRA.modules.command?.process)handled=ASTRA.modules.command.process(transcript);if(handled&&typeof handled.then==="function"){return handled.then(ok=>{if(!ok&&ASTRA.modules.ai?.ask)return ASTRA.modules.ai.ask(transcript).then(()=>true);return !!ok;}).catch(e=>{console.error("ASTRA voice routing",e);return false;}).finally(()=>{processingTranscript=false;});}if(!handled&&ASTRA.modules.ai?.ask)return ASTRA.modules.ai.ask(transcript).then(()=>true).catch(e=>{console.error("ASTRA voice AI routing",e);return false;}).finally(()=>{processingTranscript=false;});processingTranscript=false;return !!handled;}catch(e){console.error("ASTRA voice routing",e);processingTranscript=false;return false;}}
     function flushPendingTranscript(){const text=pendingTranscript.trim();clearPendingTranscript();if(text)commitTranscript(text);}
-    function appendFinalTranscript(text){const t=String(text||"").trim();if(!t)return;pendingTranscript=[pendingTranscript,t].filter(Boolean).join(" ");if(pendingTimer)clearTimeout(pendingTimer);pendingTimer=setTimeout(flushPendingTranscript,320);}
+    function appendFinalTranscript(text){const t=String(text||"").trim();if(!t)return;pendingTranscript=[pendingTranscript,t].filter(Boolean).join(" ");if(pendingTimer)clearTimeout(pendingTimer);pendingTimer=setTimeout(flushPendingTranscript,520);}
     function buildRecognition(){if(!supported())return null;const r=new Recognition();r.continuous=true;r.interimResults=true;r.lang="en-US";r.maxAlternatives=3;r.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++){const x=e.results[i];if(speaking||Date.now()<ignoreRecognitionUntil||!x)continue;if(x.isFinal){const t=chooseRecognitionCandidate(x);if(t)appendFinalTranscript(t);}}};r.onerror=e=>{if(listening&&pushToTalk&&e.error!=="not-allowed"&&e.error!=="service-not-allowed")scheduleRestart(400);};r.onend=()=>{if(pendingTranscript)flushPendingTranscript();if(listening&&pushToTalk&&!speaking)scheduleRestart(650);};return r;}
     function start(){if(!supported()){AstraReply("Voice recognition is not supported by this browser.");return false;}if(listening)return true;loadVoices();clearRestart();clearPendingTranscript();ignoreRecognitionUntil=Date.now()+300;recognition=buildRecognition();try{listening=true;pushToTalk=true;recognition.start();return true;}catch(e){listening=false;pushToTalk=false;recognition=null;return false;}}
     function stop(){pushToTalk=false;listening=false;clearRestart();clearPendingTranscript();stopSpeaking({ignoreMs:400});try{recognition?.stop?.();}catch(e){}recognition=null;}
@@ -79,10 +77,10 @@ const VoiceModule = (() => {
     function setRate(r){r=Number(r);if(!Number.isFinite(r))return false;settings.rate=Math.max(.82,Math.min(1.08,r));localStorage.setItem(STORAGE.rate,String(settings.rate));return true;}
     function setPitch(p){p=Number(p);if(!Number.isFinite(p))return false;settings.pitch=Math.max(.88,Math.min(1.12,p));localStorage.setItem(STORAGE.pitch,String(settings.pitch));return true;}
     function getVoices(){loadVoices();return voices.filter(v=>/^en/i.test(v.lang)).map(v=>({name:v.name,lang:v.lang,default:v.default}));}
-    function status(){const v=pickVoice();return {supported:supported(),listening,pushToTalk,speaking,outputEnabled:settings.output,provider:settings.provider,voice:v?.name||null,voiceCount:voices.length,tradingSpeechNormalization:true,transcriptBuffering:true,alternativeCandidateScoring:true};}
+    function status(){const v=pickVoice();return {supported:supported(),listening,pushToTalk,speaking,outputEnabled:settings.output,provider:settings.provider,voice:v?.name||null,voiceCount:voices.length,tradingSpeechNormalization:true,transcriptBuffering:true,alternativeCandidateScoring:true,phraseAwareFinalization:true};}
     function bindKeyboard(){if(window.__ASTRA_PUSH_TO_TALK_BOUND__)return;window.__ASTRA_PUSH_TO_TALK_BOUND__=true;window.addEventListener("keydown",e=>{if(e.repeat||e.key.toLowerCase()!=="v")return;const tag=e.target?.tagName?.toLowerCase();if(tag==="input"||tag==="textarea"||e.target?.isContentEditable)return;e.preventDefault();pushStart();});window.addEventListener("keyup",e=>{if(e.key.toLowerCase()!=="v")return;const tag=e.target?.tagName?.toLowerCase();if(tag==="input"||tag==="textarea"||e.target?.isContentEditable)return;e.preventDefault();pushStop();});}
     if(window.speechSynthesis){window.speechSynthesis.onvoiceschanged=loadVoices;setTimeout(loadVoices,0);}
     setTimeout(bindKeyboard,0);
-    return {name:"Voice Conversation Engine",version:"2.8",supported,start,stop,toggle,pushStart,pushStop,speak,stopSpeaking,dispatchTranscript:commitTranscript,normalizeTradingTranscript,setVoice,setProvider,setRate,setPitch,setOutput,toggleOutput,getVoices,status};
+    return {name:"Voice Conversation Engine",version:"2.9",supported,start,stop,toggle,pushStart,pushStop,speak,stopSpeaking,dispatchTranscript:commitTranscript,normalizeTradingTranscript,setVoice,setProvider,setRate,setPitch,setOutput,toggleOutput,getVoices,status};
 })();
 ASTRA.registerModule("voice",VoiceModule);
