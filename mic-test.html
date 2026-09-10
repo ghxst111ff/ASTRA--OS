@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VEGA Microphone Test</title>
+<style>body{font-family:system-ui,sans-serif;background:#01050b;color:#d9f3ff;display:grid;place-items:center;min-height:100vh;margin:0}main{width:min(520px,90vw);padding:28px;border:1px solid #284553;border-radius:16px;background:#07121a;text-align:center}button{padding:12px 20px;border-radius:10px;border:1px solid #416878;background:#10232d;color:#d9f3ff;font-weight:700}#result{margin-top:18px;line-height:1.5;white-space:pre-wrap}</style>
+</head>
+<body><main><h1>VEGA MIC TEST</h1><p>Isolated microphone input test. This page does not use dashboard buttons or SpeechRecognition.</p><button id="micTest" type="button">START MIC TEST</button><div id="result">Ready.</div></main>
+<script src="js/core/astra.js?v=2"></script>
+<script src="js/system/microphoneDiagnostics.js?v=1.1"></script>
+<script>
+const resultEl=document.getElementById('result');
+document.getElementById('micTest').addEventListener('click',async()=>{
+  const mic=ASTRA.modules.microphoneDiagnostics;
+  if(!mic){resultEl.textContent='Microphone diagnostics did not load.';return;}
+  resultEl.textContent='Testing microphone for about 3.5 seconds. Speak normally...';
+  const result=await mic.test(3500);
+  resultEl.textContent=(result.message||'Test complete.')+'\n\nLevel: '+(result.level||'n/a')+'\nAverage RMS: '+(result.averageRms??'n/a')+'\nPeak: '+(result.peak??'n/a')+'\nAverage dB: '+(result.averageDb??'n/a')+'\nPeak dB: '+(result.peakDb??'n/a');
+});
+</script></body></html>
