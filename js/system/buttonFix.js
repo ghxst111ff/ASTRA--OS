@@ -1,4 +1,4 @@
-/* ASTRA BUTTON FIX v5.0 — single owner for dashboard quick actions */
+/* ASTRA BUTTON FIX v5.1 — single owner for dashboard quick actions; hit area above dock */
 window.addEventListener("DOMContentLoaded",()=>{
  const $=(s,r=document)=>r.querySelector(s);
  const main=$(".main-area"),dashboard=$("#view-dashboard");if(!main||!dashboard)return;
@@ -12,9 +12,9 @@ window.addEventListener("DOMContentLoaded",()=>{
  let actions=$(".quick-actions");if(!actions){actions=document.createElement("div");actions.className="quick-actions astra-restored-actions";dashboard.appendChild(actions)}
  const ensure=(id,label)=>{let b=$("#"+id,actions);if(!b){b=document.createElement("button");b.id=id;b.type="button";b.textContent=label;actions.appendChild(b)}return b};
  const buttons={newTrade:ensure("newTradeBtn","＋ NEW TRADE"),topDown:ensure("topDownBtn","◈ TOP-DOWN ANALYSIS"),analyze:ensure("analyzeBtn","⌁ ANALYZE"),journal:ensure("journalBtn","＋ JOURNAL"),screen:ensure("screenBtn","▣ SCREEN"),marketScan:ensure("viewScreenBtn","◉ MARKET SCAN"),watch:ensure("watchBtn","◉ SCREEN WATCH"),mic:ensure("micTestBtn","◉ MIC TEST")};
- Object.assign(actions.style,{display:"flex",visibility:"visible",opacity:"1",position:"relative",zIndex:"130",width:"100%",minHeight:"40px",margin:"12px auto 0",justifyContent:"center",alignItems:"center",gap:"10px",flexWrap:"wrap"});
- actions.querySelectorAll("button").forEach(b=>Object.assign(b.style,{display:"inline-flex",visibility:"visible",opacity:"1",alignItems:"center",justifyContent:"center",minHeight:"34px",border:"1px solid rgba(0,194,255,.45)",background:"#052338",color:"#a9eaff",borderRadius:"18px",padding:"8px 17px",fontSize:"8px",cursor:"pointer",position:"relative",zIndex:"131"}));
- const restoreDock=()=>{const dock=$(".conversation-dock");if(!dock)return;if(dock.parentElement!==main)main.appendChild(dock);Object.assign(dock.style,{display:"block",visibility:"visible",opacity:"1",position:"relative",zIndex:"120",width:"100%",maxWidth:"1280px",margin:"12px auto 0"})};restoreDock();setTimeout(restoreDock,250);
+ Object.assign(actions.style,{display:"flex",visibility:"visible",opacity:"1",position:"relative",zIndex:"1100",isolation:"isolate",width:"100%",minHeight:"40px",margin:"12px auto 0",justifyContent:"center",alignItems:"center",gap:"10px",flexWrap:"wrap",pointerEvents:"auto"});
+ actions.querySelectorAll("button").forEach(b=>Object.assign(b.style,{display:"inline-flex",visibility:"visible",opacity:"1",alignItems:"center",justifyContent:"center",minHeight:"34px",border:"1px solid rgba(0,194,255,.45)",background:"#052338",color:"#a9eaff",borderRadius:"18px",padding:"8px 17px",fontSize:"8px",cursor:"pointer",position:"relative",zIndex:"1101",pointerEvents:"auto"}));
+ const restoreDock=()=>{const dock=$(".conversation-dock");if(!dock)return;dock.style.pointerEvents="auto";};restoreDock();setTimeout(restoreDock,250);
  bind(buttons.newTrade,()=>{go("journal");reply("Let's log it properly. Tell me the setup, direction, reason for entry, and whether it followed your rules.")});
  bind(buttons.topDown,async(_,b)=>{b.disabled=true;const original=b.textContent;b.textContent="◌ STARTING TOP-DOWN...";try{const coach=core()?.modules?.topDownCoach;if(!coach?.start)throw new Error("TopDownCoach unavailable");const r=await coach.start();reply(r?.message||"Okay, we're ready. Start with the WEEKLY chart.")}finally{b.disabled=false;b.textContent=original}});
  bind(buttons.analyze,()=>{const r=core()?.modules?.screen?.showAnalysis?.();if(!r?.ready)reply("Share your chart first, then I'll look at the setup with you.")});
@@ -23,5 +23,5 @@ window.addEventListener("DOMContentLoaded",()=>{
  bind(buttons.marketScan,()=>core()?.modules?.ai?.ask?.("Give me a current market scan and tell me what is actually relevant to my trading plan.",{trading:true,analysis:true}));
  bind(buttons.watch,async(_,b)=>{const o=core()?.modules?.proactiveMarketObserver;if(!o){reply("Screen Watch is not loaded yet.");return}if(o.status?.().watching){o.stop?.();b.classList.remove("active")}else{o.start?.();b.classList.add("active")}});
  bind(buttons.mic,async(_,b)=>{b.disabled=true;const original=b.textContent;b.textContent="◌ TESTING MIC...";try{let d=core()?.modules?.microphoneDiagnostics;if(!d?.test){await new Promise((resolve,reject)=>{const s=document.createElement("script");s.src="js/system/microphoneDiagnostics.js?v=1.1";s.onload=resolve;s.onerror=reject;document.head.appendChild(s)});d=core()?.modules?.microphoneDiagnostics}silentReply("Microphone test started. Speak normally for about three seconds.");const r=await d?.test?.(3500);reply(r?.message||"Microphone test completed.")}catch(e){console.error("VEGA microphone diagnostics",e);reply("Microphone diagnostics failed. Please allow microphone access and try again.")}finally{b.disabled=false;b.textContent=original}});
- console.log("ASTRA Button Fix v5.0 — dashboard quick actions use direct handlers only");
+ console.log("ASTRA Button Fix v5.1 — dashboard quick actions above conversation hit area");
 });
