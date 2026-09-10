@@ -1,8 +1,7 @@
 /* =========================================================
-   ASTRA RUNTIME INTEGRITY CONTROLLER v2.0
-   Canonical owner for critical dashboard controls.
-   Quick actions, navigation, tabs, send, and voice are handled here.
-   No competing quick-action handlers should exist elsewhere.
+   ASTRA RUNTIME INTEGRITY CONTROLLER v1.0
+   One final event boundary for the dashboard/chat.
+   Prevents duplicate UI handlers and keeps module data live.
 ========================================================= */
 (() => {
     const qs = (s, r=document) => r.querySelector(s);
@@ -20,7 +19,7 @@
 
     function addUserMessage(text){
         if (ASTRA.modules.response?.user) ASTRA.modules.response.user(text);
-        else if (typeof AstraReply === "function") AstraReply(`YOU: ${text}`);
+        else AstraReply(`YOU: ${text}`);
     }
 
     function send(){
@@ -33,148 +32,18 @@
         input.value = "";
         addUserMessage(text);
         try {
-            if (ASTRA.modules.command?.process) ASTRA.modules.command.process(text);
-            else if (ASTRA.modules.naturalIntent?.handle?.(text)) {}
-            else if (ASTRA.modules.ai?.ask) ASTRA.modules.ai.ask(text);
-            else if (typeof AstraReply === "function") AstraReply("ASTRA conversation engine is not available yet.");
+            if (ASTRA.modules.command?.process) {
+                ASTRA.modules.command.process(text);
+            } else if (ASTRA.modules.naturalIntent?.handle?.(text)) {
+                // handled locally
+            } else if (ASTRA.modules.ai?.ask) {
+                ASTRA.modules.ai.ask(text);
+            } else {
+                AstraReply("ASTRA conversation engine is not available yet.");
+            }
         } catch (error) {
             console.error("ASTRA SEND ERROR", error);
-            if (typeof AstraReply === "function") AstraReply(`I couldn't process that request: ${error.message}`);
-        }
-    }
-
-    function reply(text){
-        if (typeof AstraReply === "function") AstraReply(text);
-        else console.log("VEGA:", text);
-    }
-
-    function silent(text){
-        const output = qs("#output");
-        if (!output) return;
-        const wrap = document.createElement("div");
-        wrap.className = "astra-message";
-        const body = document.createElement("div");
-        body.className = "message-body";
-        const p = document.createElement("p");
-        p.textContent = text;
-        body.innerHTML = '<div class="message-speaker">VEGA</div>';
-        body.appendChild(p);
-        wrap.appendChild(body);
-        output.appendChild(wrap);
-        output.scrollTop = output.scrollHeight;
-    }
-
-    async function runTopDown(button){
-        button.disabled = true;
-        const old = button.textContent;
-        button.textContent = "◌ STARTING TOP-DOWN...";
-        try {
-            const coach = ASTRA.modules.topDownCoach;
-            if (!coach?.start) throw new Error("TopDownCoach unavailable");
-            const result = await coach.start();
-            reply(result?.message || "Okay, we're ready. Start with the WEEKLY chart.");
-        } catch (error) {
-            console.error("ASTRA TOP-DOWN ERROR", error);
-            reply("Top-down analysis could not start. Check the console for the exact error.");
-        } finally {
-            button.disabled = false;
-            button.textContent = old;
-        }
-    }
-
-    async function runScreen(button){
-        const screen = ASTRA.modules.screen;
-        if (!screen) { reply("Screen module unavailable."); return; }
-        try {
-            if (screen.sharing) {
-                screen.stopCapture?.();
-                button.classList.remove("active");
-            } else {
-                const result = await screen.startCapture?.();
-                if (result !== false) button.classList.add("active");
-            }
-        } catch (error) {
-            console.error("ASTRA SCREEN ERROR", error);
-            reply("Screen sharing could not be started.");
-        }
-    }
-
-    function runMarketScan(){
-        const ai = ASTRA.modules.ai;
-        if (!ai?.ask) { reply("AI Gateway is not available yet."); return; }
-        ai.ask("Give me a current market scan and tell me what is actually relevant to my trading plan.",{trading:true,analysis:true});
-    }
-
-    function runWatch(button){
-        const observer = ASTRA.modules.proactiveMarketObserver;
-        if (!observer) { reply("Screen Watch is not loaded yet."); return; }
-        try {
-            if (observer.status?.().watching) {
-                observer.stop?.();
-                button.classList.remove("active");
-            } else {
-                observer.start?.();
-                button.classList.add("active");
-            }
-        } catch (error) {
-            console.error("ASTRA WATCH ERROR", error);
-            reply("Screen Watch could not be changed.");
-        }
-    }
-
-    async function runMicTest(button){
-        button.disabled = true;
-        const old = button.textContent;
-        button.textContent = "◌ TESTING MIC...";
-        try {
-            let diagnostics = ASTRA.modules.microphoneDiagnostics;
-            if (!diagnostics?.test) {
-                await new Promise((resolve, reject) => {
-                    const script = document.createElement("script");
-                    script.src = "js/system/microphoneDiagnostics.js?v=1.1";
-                    script.onload = resolve;
-                    script.onerror = reject;
-                    document.head.appendChild(script);
-                });
-                diagnostics = ASTRA.modules.microphoneDiagnostics;
-            }
-            silent("Microphone test started. Speak normally for about three seconds.");
-            const result = await diagnostics?.test?.(3500);
-            reply(result?.message || "Microphone test completed.");
-        } catch (error) {
-            console.error("ASTRA MIC TEST ERROR", error);
-            reply("Microphone test could not be completed.");
-        } finally {
-            button.disabled = false;
-            button.textContent = old;
-        }
-    }
-
-    function handleQuickAction(button){
-        const id = button.id;
-        if (id === "newTradeBtn") {
-            showView("journal");
-            reply("Let's log it properly. Tell me the setup, direction, reason for entry, and whether it followed your rules.");
-        } else if (id === "journalBtn") {
-            showView("journal");
-        } else if (id === "topDownBtn") {
-            runTopDown(button);
-        } else if (id === "analyzeBtn") {
-            const result = ASTRA.modules.screen?.showAnalysis?.();
-            if (!result?.ready) reply("Share your chart first, then I'll look at the setup with you.");
-        } else if (id === "screenBtn") {
-            runScreen(button);
-        } else if (id === "viewScreenBtn") {
-            runMarketScan();
-        } else if (id === "watchBtn") {
-            runWatch(button);
-        } else if (id === "micTestBtn") {
-            runMicTest(button);
-        } else if (id === "voiceBtn") {
-            ASTRA.modules.voice?.setOutput?.(true);
-            button.classList.add("active");
-            button.textContent = "◉ ASTRA VOICE ALWAYS ON";
-            silent("ASTRA voice output is always on.");
+            AstraReply(`I couldn't process that request: ${error.message}`);
         }
     }
 
@@ -206,24 +75,15 @@
         else area.innerHTML = `<div class="stats-grid"><div><small>Live Trades</small><b>${total}</b></div><div><small>Wins</small><b>${data.wins||0}</b></div><div><small>Losses</small><b>${data.losses||0}</b></div><div><small>Win Rate</small><b>${rate}%</b></div></div><div class="content-card"><h3>LIVE PERFORMANCE</h3><p class="empty-state">This view is fed from live journal data only. Backtesting is kept separate.</p></div>`;
     }
 
+    // Capture the critical controls before older UI listeners can double-handle them.
     document.addEventListener("click", e => {
-        const target = e.target?.closest?.("button");
-        if (!target) return;
-
-        if (target.matches(".quick-actions button") || target.id === "voiceBtn") {
-            e.preventDefault();
-            e.stopImmediatePropagation();
-            handleQuickAction(target);
-            return;
-        }
-
-        const sendBtn = target.closest?.("#sendBtn");
+        const sendBtn = e.target.closest?.("#sendBtn");
         if(sendBtn){ e.preventDefault(); e.stopImmediatePropagation(); send(); return; }
 
-        const nav = target.closest?.(".nav-item[data-module]");
+        const nav = e.target.closest?.(".nav-item[data-module]");
         if(nav){ e.preventDefault(); e.stopImmediatePropagation(); showView(nav.dataset.module); return; }
 
-        const tab = target.closest?.(".inner-tabs .tab");
+        const tab = e.target.closest?.(".inner-tabs .tab");
         if(tab){
             const view = tab.closest(".view");
             const module = view?.id?.replace(/^view-/,"");
@@ -240,5 +100,5 @@
     }, true);
 
     window.ASTRA_RuntimeIntegrity = { send, showView, renderBacktest, renderPerformance };
-    console.log("ASTRA Runtime Integrity Controller v2.0 Loaded — canonical control owner");
+    console.log("ASTRA Runtime Integrity Controller v1.0 Loaded");
 })();
