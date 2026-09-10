@@ -1,12 +1,11 @@
-/* ASTRA BUTTON FIX v5.2 — single owner; quick actions rendered above fixed chat */
+/* ASTRA BUTTON FIX v5.3 — quick actions own behavior, not dashboard layout */
 window.addEventListener("DOMContentLoaded",()=>{
  const $=(s,r=document)=>r.querySelector(s); const core=()=>typeof ASTRA!=="undefined"?ASTRA:null; const go=n=>window.ASTRAShowView?.(n); const reply=t=>typeof AstraReply==="function"?AstraReply(t):console.log("VEGA:",t);
- const actions=$(".quick-actions"); const dashboard=$("#view-dashboard"); if(!dashboard)return;
+ const actions=$(".quick-actions"); const dashboard=$("#view-dashboard"); if(!dashboard||!actions)return;
  const silent=t=>{const o=$("#output");if(!o)return;const w=document.createElement("div");w.className="astra-message";w.innerHTML=`<div class="message-speaker">VEGA</div><div class="message-body"><p>${String(t).replace(/[&<>\"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",\"":"&quot;","'":"&#039;"}[m]))}</p></div>`;o.appendChild(w);o.scrollTop=o.scrollHeight};
- if(!actions)return;
- /* The chat is position:fixed at z-index 1000. Keep the quick-action hit surface in a separate top-level stacking layer. */
- actions.style.cssText="display:flex!important;position:fixed!important;left:calc(210px + (100vw - 210px)/2)!important;bottom:330px!important;transform:translateX(-50%)!important;width:min(1180px,calc(100vw - 250px))!important;min-height:42px!important;margin:0!important;justify-content:center!important;align-items:center!important;gap:10px!important;flex-wrap:wrap!important;visibility:visible!important;opacity:1!important;z-index:2000!important;pointer-events:auto!important;isolation:isolate!important;";
- actions.querySelectorAll("button").forEach(b=>{b.type="button";b.style.cssText="display:inline-flex!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;position:relative!important;z-index:2001!important;align-items:center!important;justify-content:center!important;min-height:34px!important;border:1px solid rgba(0,194,255,.45)!important;background:#052338!important;color:#a9eaff!important;border-radius:18px!important;padding:8px 17px!important;font-size:8px!important;cursor:pointer!important;"});
+ /* Do not move, resize, or fix-position the quick-action row. The dashboard owns its layout. */
+ Object.assign(actions.style,{position:"relative",zIndex:"1102",pointerEvents:"auto",visibility:"visible",opacity:"1"});
+ actions.querySelectorAll("button").forEach(b=>{b.type="button";Object.assign(b.style,{position:"relative",zIndex:"1103",pointerEvents:"auto",cursor:"pointer"})});
  const bind=(id,fn)=>{const b=$("#"+id,actions);if(!b||b.dataset.directBound)return;b.dataset.directBound="true";b.addEventListener("click",e=>{e.preventDefault();e.stopImmediatePropagation();Promise.resolve(fn(b)).catch(err=>{console.error("ASTRA quick action",id,err);reply("That action could not be completed. Check the console for the exact error.")})},true);return b};
  bind("newTradeBtn",()=>{go("journal");reply("Let's log it properly. Tell me the setup, direction, reason for entry, and whether it followed your rules.")});
  bind("journalBtn",()=>go("journal"));
@@ -18,5 +17,5 @@ window.addEventListener("DOMContentLoaded",()=>{
  bind("micTestBtn",async b=>{b.disabled=true;const old=b.textContent;b.textContent="◌ TESTING MIC...";try{let d=core()?.modules?.microphoneDiagnostics;if(!d?.test){await new Promise((res,rej)=>{const s=document.createElement("script");s.src="js/system/microphoneDiagnostics.js?v=1.1";s.onload=res;s.onerror=rej;document.head.appendChild(s)});d=core()?.modules?.microphoneDiagnostics}silent("Microphone test started. Speak normally for about three seconds.");const r=await d?.test?.(3500);reply(r?.message||"Microphone test completed.")}finally{b.disabled=false;b.textContent=old}});
  const voice=$("#voiceBtn");if(voice&&!voice.dataset.voiceBound){voice.dataset.voiceBound="true";voice.addEventListener("click",()=>{core()?.modules?.voice?.setOutput?.(true);voice.classList.add("active");voice.textContent="◉ ASTRA VOICE ALWAYS ON";silent("ASTRA voice output is always on.")})}
  document.querySelectorAll(".nav-item[data-module]").forEach(b=>{if(b.dataset.navBound)return;b.dataset.navBound="true";b.addEventListener("click",()=>go(b.dataset.module))});
- console.log("ASTRA Button Fix v5.2 — quick actions above conversation hit area");
+ console.log("ASTRA Button Fix v5.3 — behavior only, dashboard layout preserved");
 });
