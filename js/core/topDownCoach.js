@@ -1,5 +1,5 @@
 /* =========================================
-   VEGA TOP-DOWN COACH v3.4
+   VEGA TOP-DOWN COACH v3.5
    Phase 2 trading workflow
    Deterministic timeframe-specific mentor review contracts.
 ========================================= */
@@ -26,7 +26,7 @@ const TopDownCoach=(()=>{
  function normalizeReview(raw){let parsed;try{parsed=JSON.parse(String(raw||"").trim().replace(/^```json\s*/i,"").replace(/\s*```$/,""))}catch{parsed={status:"UNCLEAR",coveredRequirements:[],missingRequirements:[],correctPoints:[],incorrectPoints:[],missingPoints:[],missingLiquidity:[],feedback:String(raw||"").trim()||"I couldn't clearly verify that analysis yet.",reason:"Unstructured review."};}const allowed=["CORRECT","CORRECTION","UNCLEAR"];parsed.status=allowed.includes(String(parsed.status||"").toUpperCase())?String(parsed.status).toUpperCase():"UNCLEAR";for(const key of ["coveredRequirements","missingRequirements","correctPoints","incorrectPoints","missingPoints","missingLiquidity"]){if(!Array.isArray(parsed[key]))parsed[key]=parsed[key]?[String(parsed[key])]:[];}parsed.feedback=String(parsed.feedback||"").trim()||"Let's review that carefully.";parsed.reason=String(parsed.reason||"").trim();return parsed;}
  function transcriptCoverage(tf,analysis){const a=String(analysis||"").toLowerCase();if(tf!=="WEEKLY")return {};return {
   "context/direction":/\b(bullish|bearish|direction|bias)\b/.test(a),
-  "recent significant leg":/\b(recent|latest|current)\b[\s\w]{0,60}\b(leg|move|push|swing)\b/.test(a)||/\brecent leg\b/.test(a),
+  "recent significant leg":/\brecent\s+(?:significant\s+)?leg\b/.test(a)||/\b(recent|latest|current)\b[\s\w]{0,60}\b(leg|move|push|swing)\b/.test(a),
   "Weekly trading range":/\bweekly\b[\s\w]{0,35}\b(trading range|range)\b/.test(a),
   "important supply and demand areas":/\b(supply|demand)\b/.test(a),
   "liquidity assessment":/\bliquidity\b/.test(a),
@@ -35,11 +35,38 @@ const TopDownCoach=(()=>{
   "opportunity path into lower timeframes":/\b(daily|4h|1h|30m|lower timeframe|opportunity)\b/.test(a),
   "invalidation":/\b(invalid|invalidation)\b/.test(a)
  };}
- function enforceContract(tf,review,analysis){const req=requirementsFor(tf);const coverage=transcriptCoverage(tf,analysis);const exactMissing=(review.missingRequirements||[]).filter(x=>req.includes(x)&&!coverage[x]);const missingFromTranscript=tf==="WEEKLY"?req.filter(x=>coverage[x]===false):exactMissing;review.coveredRequirements=req.filter(x=>coverage[x]===true||review.coveredRequirements.includes(x));review.missingRequirements=missingFromTranscript;review.missingPoints=missingFromTranscript.slice();review.missingLiquidity=[];if(tf==="WEEKLY")review.incorrectPoints=(review.incorrectPoints||[]).filter(x=>{const s=String(x).toLowerCase();return !(s.includes("no liquidity")||s.includes("don't see any equal")||s.includes("do not see any equal")||s.includes("stop-cluster")||s.includes("stop cluster")||(s.includes("absence")&&s.includes("liquidity")));});if(!review.missingRequirements.length&&!(review.incorrectPoints||[]).length)review.status="CORRECT";else if(review.missingRequirements.length)review.status="CORRECTION";return review;}
- async function reviewAnalysis(){if(state.awaitingReview)return withAnnouncement(()=>({handled:true,waiting:true,message:"I'm reviewing that now.",state:snapshot()}));const tf=current();state.awaitingReview=true;state.lastAnalysis=state.currentTranscript;save();const screen=ASTRA.modules.screen;if(!screen?.sharing){state.awaitingReview=false;save();return withAnnouncement(()=>({handled:true,message:`I'm ready to review your ${tf} analysis, but I need the chart shared and visible first. Keep the ${tf} chart on screen, then say you're finished again.`}));}const frame=screen.getFrame?.({maxWidth:1440,quality:.65});if(!frame){state.awaitingReview=false;save();return withAnnouncement(()=>({handled:true,message:`I can't see a usable ${tf} chart yet. Keep the ${tf} chart visible, then say you're finished again.`}));}const system=ASTRA.modules.trading?.strategy||{};try{const result=await ASTRA.modules.ai.ask(buildReviewPrompt(tf,state.lastAnalysis,system),{image:frame,vision:true,trading:true,topDownReview:true,skipTopDown:true,returnOnly:true,context:{timeframe:tf,role:roleFor(tf),requirements:requirementsFor(tf),analysis:state.lastAnalysis,strategySource:"Jay original detailed Trading Strategy"}});const parsed=enforceContract(tf,normalizeReview(result?.answer),state.lastAnalysis);state.lastReview={timeframe:tf,...parsed,date:new Date().toISOString()};if(parsed.status==="CORRECT"){state.completed.push({timeframe:tf,analysis:state.lastAnalysis,review:parsed,date:new Date().toISOString()});if(state.index<state.timeframes.length-1){state.index++;state.currentTranscript="";state.awaitingReview=false;save();const next=current();return withAnnouncement(()=>({handled:true,advanced:true,feedback:`${parsed.feedback} Next: ${promptFor(next)}`,state:snapshot()}));}state.active=false;state.awaitingReview=false;save();return withAnnouncement(()=>({handled:true,done:true,feedback:`${parsed.feedback} Top-down analysis is complete. Your final execution decision still requires your 15M or 5M confirmation and your trading rules.`,state:snapshot()}));}state.awaitingReview=false;save();return withAnnouncement(()=>({handled:true,waiting:true,feedback:`${parsed.feedback} WAIT — this ${tf} analysis is not complete enough to advance.`,state:snapshot()}));}catch(e){console.error("VEGA top-down review:",e);state.awaitingReview=false;save();return withAnnouncement(()=>({handled:true,message:"I couldn't complete the chart review. Stay on this timeframe, keep the chart visible, and say you're finished again.",state:snapshot()}));}}
+ function enforceContract(tf,review,analysis){
+   const req=requirementsFor(tf),coverage=transcriptCoverage(tf,analysis);
+   if(tf==="WEEKLY"){
+     const missing=req.filter(x=>coverage[x]===false);
+     review.coveredRequirements=req.filter(x=>coverage[x]===true);
+     review.missingRequirements=missing;
+     review.missingPoints=missing.slice();
+     review.missingLiquidity=[];
+     review.incorrectPoints=[];
+     if(!missing.length){
+       review.status="CORRECT";
+       review.feedback="Weekly analysis complete. You covered the required Weekly context, range, supply/demand, liquidity assessment, narrative, scenarios, lower-timeframe opportunity path, and invalidation. Next: Start with the DAILY chart.";
+       review.reason="All Weekly contract requirements were explicitly addressed. Recommendations cannot block progression.";
+     }else{
+       review.status="CORRECTION";
+       review.feedback=`Complete the missing Weekly items: ${missing.join(", ")}.`;
+       review.reason="One or more required Weekly contract items were not explicitly addressed.";
+     }
+     return review;
+   }
+   const exactMissing=(review.missingRequirements||[]).filter(x=>req.includes(x));
+   review.missingRequirements=exactMissing;
+   review.missingPoints=exactMissing.slice();
+   review.missingLiquidity=[];
+   if(!exactMissing.length&&!(review.incorrectPoints||[]).length)review.status="CORRECT";
+   else if(exactMissing.length)review.status="CORRECTION";
+   return review;
+ }
+ async function reviewAnalysis(){if(state.awaitingReview)return withAnnouncement(()=>({handled:true,waiting:true,message:"I'm reviewing that now.",state:snapshot()}));const tf=current();state.awaitingReview=true;state.lastAnalysis=state.currentTranscript;save();const screen=ASTRA.modules.screen;if(!screen?.sharing){state.awaitingReview=false;save();return withAnnouncement(()=>({handled:true,message:`I'm ready to review your ${tf} analysis, but I need the chart shared and visible first. Keep the ${tf} chart on screen, then say you're finished again.`}));}const frame=screen.getFrame?.({maxWidth:1440,quality:.65});if(!frame){state.awaitingReview=false;save();return withAnnouncement(()=>({handled:true,message:`I can't see a usable ${tf} chart yet. Keep the ${tf} chart visible, then say you're finished again.`}));}const system=ASTRA.modules.trading?.strategy||{};try{const result=await ASTRA.modules.ai.ask(buildReviewPrompt(tf,state.lastAnalysis,system),{image:frame,vision:true,trading:true,topDownReview:true,skipTopDown:true,returnOnly:true,context:{timeframe:tf,role:roleFor(tf),requirements:requirementsFor(tf),analysis:state.lastAnalysis,strategySource:"Jay original detailed Trading Strategy"}});const parsed=enforceContract(tf,normalizeReview(result?.answer),state.lastAnalysis);state.lastReview={timeframe:tf,...parsed,date:new Date().toISOString()};if(parsed.status==="CORRECT"){state.completed.push({timeframe:tf,analysis:state.lastAnalysis,review:parsed,date:new Date().toISOString()});if(state.index<state.timeframes.length-1){state.index++;state.currentTranscript="";state.awaitingReview=false;save();const next=current();return withAnnouncement(()=>({handled:true,advanced:true,feedback:`${parsed.feedback} ${promptFor(next)}`,state:snapshot()}));}state.active=false;state.awaitingReview=false;save();return withAnnouncement(()=>({handled:true,done:true,feedback:`${parsed.feedback} Top-down analysis is complete. Your final execution decision still requires your 15M or 5M confirmation and your trading rules.`,state:snapshot()}));}state.awaitingReview=false;save();return withAnnouncement(()=>({handled:true,waiting:true,feedback:`${parsed.feedback} WAIT — this ${tf} analysis is not complete enough to advance.`,state:snapshot()}));}catch(e){console.error("VEGA top-down review:",e);state.awaitingReview=false;save();return withAnnouncement(()=>({handled:true,message:"I couldn't complete the chart review. Stay on this timeframe, keep the chart visible, and say you're finished again.",state:snapshot()}));}}
  function handle(message){const text=String(message||"").trim();if(!text)return {handled:false};if(!state.active&&isTopDownStart(text))return start();if(!state.active)return {handled:false};if(isFinished(text))return reviewAnalysis();appendAnalysis(text);return {handled:true,listening:true,silent:true,state:snapshot()};}
  const voiceHook=setInterval(()=>{installVoiceGuard();if(voiceGuardInstalled)clearInterval(voiceHook);},250);installVoiceGuard();
- return {name:"VEGA Top-Down Coach",version:"3.4",start,stop:()=>{state.active=false;state.awaitingReview=false;allowAnnouncement=false;state.currentTranscript="";save();return snapshot()},snapshot,current,promptFor,roleFor,requirementsFor,reviewAnalysis,handle,isFinished,isTopDownStart};
+ return {name:"VEGA Top-Down Coach",version:"3.5",start,stop:()=>{state.active=false;state.awaitingReview=false;allowAnnouncement=false;state.currentTranscript="";save();return snapshot()},snapshot,current,promptFor,roleFor,requirementsFor,reviewAnalysis,handle,isFinished,isTopDownStart};
 })();
 ASTRA.registerModule("topDownCoach",TopDownCoach);
-console.log("VEGA Top-Down Coach v3.4 Loaded — contract coverage is authoritative; recommendations cannot create missing requirements");
+console.log("VEGA Top-Down Coach v3.5 Loaded — Weekly contract is authoritative");
