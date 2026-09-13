@@ -1,10 +1,10 @@
 # ASTRA Current Development State
 
-**Version:** 1.1  
-**Status:** Active Development — browser smoke verified  
+**Version:** 1.2  
+**Status:** Active Development — browser smoke verification running  
 **Repository:** `ghxst111ff/ASTRA--OS`  
 **Branch:** `main`  
-**Snapshot:** 2026-08-15
+**Snapshot:** 2026-09-13
 
 ## 1. Canonical Sources
 
@@ -38,6 +38,8 @@ ASTRA now uses the modular `js/core`, `js/modules`, and `js/system` architecture
 - `apiConnection.js`
 - `aiGateway.js`
 - `coachEngine.js`
+- `topDownCoach.js`
+- `history.js`
 
 ### Application modules
 
@@ -47,12 +49,15 @@ ASTRA now uses the modular `js/core`, `js/modules`, and `js/system` architecture
 - performance
 - backtesting
 - marketData
+- marketNarrativeStrategy
 - screen
 - voice
 - traderProfile
 - proactiveMarketObserver
+- demoAccount
 - risk
 - psychology
+- research
 
 ### System modules
 
@@ -76,6 +81,12 @@ ASTRA now uses the modular `js/core`, `js/modules`, and `js/system` architecture
 - buttonFix
 - conversationLayout
 - runtimeIntegrity
+- interactionFix
+- tradeScreenshot
+- tradeEditor
+- tradeManagementUI
+- microphoneDiagnostics
+- microphoneTestLauncher
 
 ## 3. Ownership Rule
 
@@ -87,45 +98,47 @@ The old script-to-module reconciliation found no legitimate new subsystem requir
 
 See `docs/ASTRA-SCRIPT-RECONCILIATION-2026-08-14.md`.
 
-## 4. Recent Repairs
+## 4. Recent Repairs and Cleanup
 
 ### Command routing
 
-`js/core/commandRouter.js` now preserves legacy system commands (`astra version`, `astra modules`), routes open/close intent through the current view system, and exposes command registration through the canonical `ASTRA.registerCommand()` API.
+`js/core/commandRouter.js` preserves legacy system commands (`astra version`, `astra modules`), routes open/close intent through the current view system, and exposes command registration through the canonical `ASTRA.registerCommand()` API.
 
 ### Verification gate
 
-`js/system/systemVerifier.js` now calls the canonical `VerificationModule` after its system-level checks. Installation remains blocked when verification fails or is unavailable.
+`js/system/systemVerifier.js` calls the canonical Verification Engine after its system-level checks. Installation remains blocked when verification fails or is unavailable.
 
 ### Backup
 
-`js/system/backup.js` now actually restores memory, journal, performance, updates, and mode state instead of only reporting that a backup exists.
+`js/system/backup.js` restores memory, journal, performance, updates, and mode state instead of only reporting that a backup exists.
 
-### Coach observations
+### Conversation ownership
 
-`js/core/coachEngine.js` v1.3 now exposes `addObservation()`, persists recent observations, and accepts the proactive observer's observation records. It also recognizes the persisted `ASTRA_MODE` key as a mode-state fallback.
+`js/system/runtimeIntegrity.js` remains the final owner of SEND/Enter submission. `js/system/interactionFix.js` owns trade and module interactions. `js/system/buttonFix.js` owns dashboard quick actions and the top voice-output control. `js/system/conversationLayout.js` owns the in-chat microphone/layout.
 
-### Screen button
+### September 2026 cleanup
 
-`js/system/buttonFix.js` v2.2 now uses the canonical `screen.sharing` property instead of treating `screen.status()` as a state object.
+Removed obsolete or superseded files that were no longer loaded by the production page:
 
-### Conversation UI
+- `js/system/micTestLauncher.js` — duplicate microphone launcher; `microphoneTestLauncher.js` is the single launcher.
+- `js/system/microphoneTestHarness.js` — unused keyboard diagnostic harness; isolated `mic-test.html` remains the supported diagnostic path.
+- `js/system/screenButtonFix.js` — superseded screen-button handler; `buttonFix.js` is the canonical owner.
 
-`conversationLayout.js` remains the sole owner of the in-chat microphone. `runtimeIntegrity.js` remains the owner of SEND/Enter submission. The top `VOICE COMMAND` control remains separate.
+Removed the legacy hidden `#hiddenScreen` control from `index.html` because the production UI already has the canonical screen controls.
+
+### Voice output repair
+
+`js/modules/voice.js` v3.2 restores the intended voice-output toggle. The previous implementation forced output back to `true` whenever the dashboard control was used, so the UI could not actually turn voice output off. Output state is now persisted in `localStorage` and reflected by `status().outputEnabled`.
 
 ## 5. Browser Smoke Testing
 
-A real Chromium browser smoke test is now part of the repository:
+A real Chromium browser smoke test is part of the repository:
 
 - `tests/browser-smoke.cjs`
 - `.github/workflows/browser-smoke.yml`
 - `docs/ASTRA-APPENDIX-J-SMOKE-TEST-2026-08-14.md`
 
-### Latest result
-
-Workflow run **#6**, run ID `31862968141`, passed successfully on commit `796021074998dc2cbc24af4719f156084b8e5586`.
-
-The smoke test verified:
+A push-triggered smoke run is currently executing against the cleanup commit. The test covers:
 
 - page load
 - bottom conversation panel
@@ -138,6 +151,7 @@ The smoke test verified:
 - AI response path using a deterministic CI API stub
 - no browser console/runtime errors
 - no failed browser resource requests
+- natural-language research classification
 
 ## 6. Appendix J Status
 
@@ -152,6 +166,8 @@ The smoke test verified:
 - Functional backup restore
 - Browser smoke/system UI checks
 - Duplicate conversation-control protection
+- Production cleanup of obsolete duplicate handlers
+- Voice output toggle repair
 
 ### Still required
 
@@ -180,10 +196,10 @@ Before changing or deleting a module:
 5. Run the browser smoke test after UI/runtime changes.
 6. Update this document after meaningful architecture changes.
 
+**ASTRA is not v1.0 Stable until Appendix J release-readiness requirements are demonstrated.**
+
 ## 8. Chat Handoff
 
 For a new chat, say:
 
 > Read `docs/ASTRA-CURRENT-STATE.md` first. Treat the ASTRA Project Bible v3.0, ASTRA Vision & Goals, Engineering Governance, and Appendix J as canonical. Inspect the live GitHub repository before making implementation claims. Preserve one canonical owner per subsystem and do not recreate duplicate modules.
-
-**ASTRA is not v1.0 Stable until Appendix J release-readiness requirements are demonstrated.**
