@@ -1,6 +1,6 @@
 /* =========================================================
-   ASTRA VOICE / CONVERSATION ENGINE v3.1
-   Voice output is always enabled; recognition remains push-to-talk.
+   ASTRA VOICE / CONVERSATION ENGINE v3.2
+   Voice output is user-toggleable; recognition remains push-to-talk.
    Phrase-aware finalization, trading-term normalization, and
    normal-speed speech correction retained.
 ========================================================= */
@@ -10,8 +10,8 @@ const VoiceModule = (() => {
     let voices=[],restartTimer=null,speechQueue=[],queueRunning=false,currentUtterance=null;
     let ignoreRecognitionUntil=0,processingTranscript=false,lastTranscript="",lastTranscriptAt=0;
     let pendingTranscript="",pendingTimer=null;
-    const STORAGE={voice:"ASTRA_VOICE_NAME",provider:"ASTRA_VOICE_PROVIDER",rate:"ASTRA_VOICE_RATE",pitch:"ASTRA_VOICE_PITCH",ttsPath:"ASTRA_VOICE_TTS_PATH"};
-    const settings={provider:localStorage.getItem(STORAGE.provider)||"auto",voiceName:localStorage.getItem(STORAGE.voice)||"",rate:Number(localStorage.getItem(STORAGE.rate)||0.96),pitch:Number(localStorage.getItem(STORAGE.pitch)||1),ttsPath:localStorage.getItem(STORAGE.ttsPath)||"/tts",output:true};
+    const STORAGE={voice:"ASTRA_VOICE_NAME",provider:"ASTRA_VOICE_PROVIDER",rate:"ASTRA_VOICE_RATE",pitch:"ASTRA_VOICE_PITCH",ttsPath:"ASTRA_VOICE_TTS_PATH",output:"ASTRA_VOICE_OUTPUT"};
+    const settings={provider:localStorage.getItem(STORAGE.provider)||"auto",voiceName:localStorage.getItem(STORAGE.voice)||"",rate:Number(localStorage.getItem(STORAGE.rate)||0.96),pitch:Number(localStorage.getItem(STORAGE.pitch)||1),ttsPath:localStorage.getItem(STORAGE.ttsPath)||"/tts",output:localStorage.getItem(STORAGE.output)!==null?localStorage.getItem(STORAGE.output)==="true":true};
     const TRADING_TERMS=["weekly","daily","four hour","4h","one hour","1h","thirty minute","30m","fifteen minute","15m","five minute","5m","recent leg","leg of price action","price action","market structure","structure","higher timeframe","lower timeframe","supply and demand","supply","demand","liquidity","equal highs","equal lows","imbalance","displacement","momentum","narrative","delivery","fractal","break of structure","bos","change of character","choch","confirmation","invalidation","scenario","bullish","bearish","buy","sell","entry","target","range","swing high","swing low","high","low"];
     const supported=()=>!!Recognition;
     function normalizeTradingTranscript(text){let v=String(text||"").trim();if(!v)return "";const r=[
@@ -66,17 +66,17 @@ const VoiceModule = (() => {
     function pushStart(){if(!supported())return false;if(!listening)start();if(!recognition)return false;pushToTalk=true;clearRestart();try{recognition.start();}catch(e){}return true;}
     function pushStop(){pushToTalk=false;clearRestart();flushPendingTranscript();try{recognition?.stop?.();}catch(e){}listening=false;}
     function toggle(){return listening?(stop(),false):start();}
-    function setOutput(enabled){settings.output=true;return true;}
-    function toggleOutput(){settings.output=true;return true;}
+    function setOutput(enabled){settings.output=!!enabled;localStorage.setItem(STORAGE.output,String(settings.output));return settings.output;}
+    function toggleOutput(){settings.output=!settings.output;localStorage.setItem(STORAGE.output,String(settings.output));return settings.output;}
     function setVoice(n){loadVoices();const v=voices.find(x=>x.name===n);if(!v)return false;settings.voiceName=v.name;localStorage.setItem(STORAGE.voice,v.name);return true;}
     function setProvider(p){p=String(p||"auto").toLowerCase();if(!["auto","native","gateway"].includes(p))return false;settings.provider=p;localStorage.setItem(STORAGE.provider,p);return true;}
     function setRate(r){r=Number(r);if(!Number.isFinite(r))return false;settings.rate=Math.max(.82,Math.min(1.08,r));localStorage.setItem(STORAGE.rate,String(settings.rate));return true;}
     function setPitch(p){p=Number(p);if(!Number.isFinite(p))return false;settings.pitch=Math.max(.88,Math.min(1.12,p));localStorage.setItem(STORAGE.pitch,String(settings.pitch));return true;}
     function getVoices(){loadVoices();return voices.filter(v=>/^en/i.test(v.lang)).map(v=>({name:v.name,lang:v.lang,default:v.default}));}
-    function status(){const v=pickVoice();return {supported:supported(),listening,pushToTalk,speaking,outputEnabled:true,provider:settings.provider,voice:v?.name||null,voiceCount:voices.length,tradingSpeechNormalization:true,transcriptBuffering:true,alternativeCandidateScoring:true,phraseAwareFinalization:true,normalSpeedCorrection:true,voiceAlwaysOn:true};}
+    function status(){const v=pickVoice();return {supported:supported(),listening,pushToTalk,speaking,outputEnabled:settings.output,provider:settings.provider,voice:v?.name||null,voiceCount:voices.length,tradingSpeechNormalization:true,transcriptBuffering:true,alternativeCandidateScoring:true,phraseAwareFinalization:true,normalSpeedCorrection:true,voiceAlwaysOn:false};}
     function bindKeyboard(){if(window.__ASTRA_PUSH_TO_TALK_BOUND__)return;window.__ASTRA_PUSH_TO_TALK_BOUND__=true;window.addEventListener("keydown",e=>{if(e.repeat||e.key.toLowerCase()!=="v")return;const tag=e.target?.tagName?.toLowerCase();if(tag==="input"||tag==="textarea"||e.target?.isContentEditable)return;e.preventDefault();pushStart();});window.addEventListener("keyup",e=>{if(e.key.toLowerCase()!=="v")return;const tag=e.target?.tagName?.toLowerCase();if(tag==="input"||tag==="textarea"||e.target?.isContentEditable)return;e.preventDefault();pushStop();});}
     if(window.speechSynthesis){window.speechSynthesis.onvoiceschanged=loadVoices;setTimeout(loadVoices,0);}
     setTimeout(bindKeyboard,0);
-    return {name:"Voice Conversation Engine",version:"3.1",supported,start,stop,toggle,pushStart,pushStop,speak,stopSpeaking,dispatchTranscript:commitTranscript,normalizeTradingTranscript,setVoice,setProvider,setRate,setPitch,setOutput,toggleOutput,getVoices,status};
+    return {name:"Voice Conversation Engine",version:"3.2",supported,start,stop,toggle,pushStart,pushStop,speak,stopSpeaking,dispatchTranscript:commitTranscript,normalizeTradingTranscript,setVoice,setProvider,setRate,setPitch,setOutput,toggleOutput,getVoices,status};
 })();
 ASTRA.registerModule("voice",VoiceModule);
